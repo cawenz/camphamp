@@ -1,0 +1,101 @@
+/* ── Shared styles for signup / login pages ── */
+
+body.auth-body {
+  height: auto;
+  min-height: 100vh;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 10% 20%, var(--blue-light) 0%, transparent 35%),
+    radial-gradient(circle at 90% 80%, var(--accent-light) 0%, transparent 40%),
+    var(--paper);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  padding: 32px 32px 28px;
+}
+
+.auth-brand {
+  display: inline-block;
+  font-family: 'Staatliches', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  margin-bottom: 18px;
+}
+.auth-brand span { color: var(--teal); }
+
+.auth-title {
+  font-family: 'Staatliches', sans-serif;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.auth-sub {
+  color: rgba(0,0,0,0.55);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.auth-form .form-group { margin-bottom: 14px; }
+.auth-form .hint {
+  font-size: 11px;
+  color: rgba(0,0,0,0.45);
+  margin-top: 4px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+.form-row .form-group { flex: 1; }
+
+.cond-block {
+  background: rgba(0,155,158,0.05);
+  border: 1px solid rgba(0,155,158,0.15);
+  border-radius: 10px;
+  padding: 14px 14px 2px;
+  margin-bottom: 14px;
+}
+.cond-block .form-group:last-child { margin-bottom: 14px; }
+
+.auth-error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.auth-info {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--blue-light);
+  color: var(--blue);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.auth-foot {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(0,0,0,0.55);
+}
+.auth-foot a {
+  color: var(--teal);
+  text-decoration: none;
+  font-weight: 600;
+}
+.auth-foot a:hover { text-decoration: underline; }

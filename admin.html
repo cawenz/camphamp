@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Hampshire College Memory Map</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Staatliches&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-body">
+
+<header id="app-header">
+  <div class="header-brand">
+    <a class="auth-brand" href="index.html" style="color:#fff;text-decoration:none;">
+      Non Satis <span>Loca Scire</span>
+    </a>
+    <div class="divider"></div>
+    <span class="admin-tag">Admin</span>
+  </div>
+  <div class="header-controls">
+    <a class="header-btn" href="index.html">← Back to map</a>
+    <button class="header-btn" id="signout-btn">Sign out</button>
+  </div>
+</header>
+
+<main class="admin-main">
+  <div class="admin-controls">
+    <h1>Accounts</h1>
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="active">Active</button>
+      <button class="filter-btn" data-filter="disabled">Disabled</button>
+      <input type="search" id="search-input" placeholder="Search name, email, answers…">
+    </div>
+  </div>
+
+  <div id="admin-status" class="admin-status">Loading…</div>
+  <div id="profile-list" class="profile-list" hidden></div>
+</main>
+
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+const { db, isConfigured, getProfile, signOut, formatBadge, formatAffiliation } = window.CampHampAuth;
+
+const statusEl = document.getElementById('profile-list');
+const statusMsg = document.getElementById('admin-status');
+
+let allProfiles = [];
+let currentFilter = 'all';
+let currentSearch = '';
+
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = isError ? 'show error' : 'show';
+  setTimeout(() => t.className = '', 2500);
+}
+
+async function init() {
+  if (!isConfigured) {
+    statusMsg.textContent = 'Supabase is not configured.';
+    return;
+  }
+  const profile = await getProfile();
+  if (!profile) {
+    window.location.href = 'login.html';
+    return;
+  }
+  if (profile.role !== 'admin') {
+    statusMsg.innerHTML = 'You don\'t have admin access. <a href="index.html">Back to map</a>.';
+    return;
+  }
+  await loadProfiles();
+}
+
+async function loadProfiles() {
+  statusMsg.textContent = 'Loading…';
+  statusEl.hidden = true;
+
+  const { data, error } = await db
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    statusMsg.textContent = 'Failed to load: ' + error.message;
+    return;
+  }
+  allProfiles = data || [];
+  render();
+}
+
+function render() {
+  let rows = allProfiles;
+  if (currentFilter !== 'all') {
+    rows = rows.filter(p => p.status === currentFilter);
+  }
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    rows = rows.filter(p =>
+      (p.display_name || '').toLowerCase().includes(q) ||
+      (p.email || '').toLowerCase().includes(q) ||
+      (p.affiliation_other || '').toLowerCase().includes(q) ||
+      (p.why_joining || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (rows.length === 0) {
+    statusMsg.textContent = 'No accounts match.';
+    statusEl.hidden = true;
+    return;
+  }
+  statusMsg.textContent = `${rows.length} account${rows.length === 1 ? '' : 's'}`;
+  statusEl.hidden = false;
+  statusEl.innerHTML = rows.map(renderRow).join('');
+}
+
+function escapeHtml(s) {
+  return (s ?? '').toString().replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderRow(p) {
+  const badge = formatBadge(p);
+  const aff = formatAffiliation(p);
+  const created = new Date(p.created_at).toLocaleDateString(undefined,
+    { year:'numeric', month:'short', day:'numeric' });
+  const isDisabled = p.status === 'disabled';
+  const isAdmin = p.role === 'admin';
+
+  return `
+    <div class="profile-row ${isDisabled ? 'is-disabled' : ''}" data-id="${p.id}">
+      <div class="profile-head">
+        <div class="profile-name">
+          ${escapeHtml(p.display_name)}
+          ${badge ? `<span class="profile-badge">${escapeHtml(badge)}</span>` : ''}
+          ${isAdmin ? '<span class="profile-badge admin">Admin</span>' : ''}
+          ${isDisabled ? '<span class="profile-badge disabled">Disabled</span>' : ''}
+        </div>
+        <div class="profile-meta">
+          ${escapeHtml(p.email || '')} · joined ${created}
+        </div>
+      </div>
+      <div class="profile-body">
+        <div class="profile-field">
+          <span class="field-label">Affiliation</span>
+          <span class="field-value">${escapeHtml(aff)}</span>
+        </div>
+        ${p.why_joining ? `
+        <div class="profile-field">
+          <span class="field-label">Why joining</span>
+          <span class="field-value">${escapeHtml(p.why_joining)}</span>
+        </div>` : ''}
+        ${isDisabled && p.disabled_reason ? `
+        <div class="profile-field">
+          <span class="field-label">Disabled reason</span>
+          <span class="field-value">${escapeHtml(p.disabled_reason)}</span>
+        </div>` : ''}
+      </div>
+      <div class="profile-actions">
+        ${isDisabled
+          ? `<button class="action-btn" data-act="enable">Re-enable</button>`
+          : `<button class="action-btn danger" data-act="disable">Disable…</button>`}
+      </div>
+    </div>
+  `;
+}
+
+document.querySelectorAll('.filter-btn').forEach(b =>
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    currentFilter = b.dataset.filter;
+    render();
+  })
+);
+
+document.getElementById('search-input').addEventListener('input', (e) => {
+  currentSearch = e.target.value;
+  render();
+});
+
+document.getElementById('profile-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.action-btn');
+  if (!btn) return;
+  const row = btn.closest('.profile-row');
+  const id = row.dataset.id;
+  const act = btn.dataset.act;
+
+  if (act === 'disable') {
+    const reason = prompt('Optional reason (visible to admins only):') ?? '';
+    if (reason === null) return;
+    btn.disabled = true;
+    const { data: { user } } = await db.auth.getUser();
+    const { error } = await db.from('profiles').update({
+      status: 'disabled',
+      disabled_at: new Date().toISOString(),
+      disabled_by: user?.id || null,
+      disabled_reason: reason || null,
+    }).eq('id', id);
+    if (error) { showToast('Failed: ' + error.message, true); btn.disabled = false; return; }
+    showToast('Account disabled');
+    await loadProfiles();
+  } else if (act === 'enable') {
+    btn.disabled = true;
+    const { error } = await db.from('profiles').update({
+      status: 'active',
+      disabled_at: null,
+      disabled_by: null,
+      disabled_reason: null,
+    }).eq('id', id);
+    if (error) { showToast('Failed: ' + error.message, true); btn.disabled = false; return; }
+    showToast('Account re-enabled');
+    await loadProfiles();
+  }
+});
+
+document.getElementById('signout-btn').addEventListener('click', async () => {
+  await signOut();
+  window.location.href = 'login.html';
+});
+
+init();
+</script>
+
+</body>
+</html>

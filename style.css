@@ -55,6 +55,28 @@ body {
 .header-btn:hover { background: rgba(255,255,255,0.2); }
 .header-btn.active { background: var(--teal); border-color: var(--teal); }
 .header-btn.admin-btn.active { background: var(--gold); border-color: var(--gold); color: #000; }
+.header-user { display: flex; align-items: center; gap: 8px; }
+.header-user-name {
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-user-name .user-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
 
 /* ── MAP ── */
 #map { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 1; }
@@ -97,19 +119,58 @@ body {
   color: rgba(26,26,26,0.5); margin-bottom: 6px;
 }
 .form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="number"],
 .form-group input[type="url"],
+.form-group input[type="search"],
+.form-group input[type="tel"],
 .form-group textarea,
 .form-group select {
-  width: 100%; padding: 10px 12px;
+  width: 100%;
+  padding: 11px 14px;
   border: 1.5px solid rgba(0,0,0,0.12);
-  border-radius: 8px; font-family: inherit;
-  font-size: 14px; background: #fff;
-  transition: border-color 0.2s;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  background: #fff;
+  color: var(--ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
 }
-.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
-  outline: none; border-color: var(--teal);
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(0,0,0,0.35);
+}
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(0,155,158,0.15);
+}
+.form-group input:hover,
+.form-group textarea:hover,
+.form-group select:hover {
+  border-color: rgba(0,0,0,0.22);
+}
+/* Hide the spinner on number inputs — looks cleaner */
+.form-group input[type="number"]::-webkit-inner-spin-button,
+.form-group input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.form-group input[type="number"] {
+  -moz-appearance: textfield;
 }
 .form-group textarea { resize: vertical; min-height: 100px; }
+.form-group .hint {
+  font-size: 11px;
+  color: rgba(0,0,0,0.45);
+  margin-top: 4px;
+}
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-btn {
   padding: 5px 12px; border-radius: 20px;
@@ -155,6 +216,27 @@ body {
   border-radius: 6px; font-size: 12px;
   font-family: monospace; color: rgba(26,26,26,0.6);
   display: flex; align-items: center; justify-content: space-between;
+}
+.memory-author-display {
+  background: rgba(0,155,158,0.06);
+  border: 1px solid rgba(0,155,158,0.18);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: rgba(0,0,0,0.7);
+}
+.memory-author-display .user-badge {
+  display: inline-block;
+  background: var(--teal);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 /* ── GPS BUTTON ── */
@@ -213,12 +295,37 @@ body {
   letter-spacing: 0.5px; margin-bottom: 12px;
 }
 .category-badge.personal, .type-badge.memorial { background: var(--accent-light); color: var(--accent); }
-.category-badge.academic, .type-badge.building { background: var(--blue-light); color: var(--blue); }
+.category-badge.academic, .type-badge.building, .type-badge.named { background: var(--blue-light); color: var(--blue); }
 .category-badge.social { background: #f0e0f5; color: #8b4d9e; }
 .category-badge.nature, .type-badge.nature { background: var(--green-light); color: var(--green); }
-.category-badge.art, .type-badge.art { background: #fce8d5; color: #b8763e; }
-.type-badge.cultural { background: #fce8d5; color: #b8763e; }
+.category-badge.art, .type-badge.art { background: #f0e0f5; color: #8b4d9e; }
+.type-badge.cultural { background: #faf0d2; color: #8a6d10; }
 .type-badge.housing { background: #e8e4f0; color: #5a4d7e; }
+.type-badge.tree { background: #d8e8d4; color: #4f7d4d; }
+
+.detail-fields {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.025);
+  border-radius: 8px;
+}
+.detail-field {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  padding: 3px 0;
+}
+.detail-field .field-key {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(0,0,0,0.45);
+  flex-shrink: 0;
+  width: 110px;
+  padding-top: 2px;
+}
+.detail-field .field-val { color: var(--ink); }
 
 .description { font-size: 15px; line-height: 1.65; margin-bottom: 16px; }
 .memory-image {
@@ -240,21 +347,89 @@ body {
 
 /* ── LEGEND ── */
 #legend {
-  position: fixed; bottom: 24px; left: 24px; z-index: 800;
+  position: fixed; bottom: 18px; left: 18px; z-index: 800;
   background: var(--paper); border-radius: var(--radius);
-  padding: 16px 20px;
   box-shadow: 0 4px 20px var(--shadow);
   font-size: 12px; border: 1px solid rgba(0,0,0,0.06);
+  overflow: hidden;
+  max-width: 240px;
 }
-#legend h3 {
+.legend-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
   font-family: 'Staatliches', sans-serif;
-  font-size: 14px; margin-bottom: 10px; font-weight: 400;
-  letter-spacing: 0.5px;
+  font-size: 14px;
+  letter-spacing: 0.6px;
+  color: var(--ink);
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
-.legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-.legend-dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); flex-shrink: 0;
+.legend-chevron {
+  font-size: 13px;
+  color: rgba(0,0,0,0.45);
+  transition: transform 0.2s;
+}
+/* Desktop: legend body always shown; chevron is decorative-only. */
+@media (min-width: 641px) {
+  #legend .legend-toggle { cursor: default; pointer-events: none; }
+  #legend .legend-chevron { display: none; }
+}
+.legend-body {
+  padding: 0 16px 14px;
+}
+.legend-section {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.4);
+  margin: 10px 0 5px;
+}
+.legend-section:first-child { margin-top: 0; }
+.legend-item { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
+.legend-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.legend-icon svg {
+  width: 14px; height: 14px;
+  display: block;
+}
+/* Landmark-style: colored circle with white icon inside */
+.legend-pin {
+  background: var(--blue);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  color: #fff;
+}
+.legend-pin svg { width: 12px; height: 12px; }
+.legend-pin.memorial { background: var(--accent); }
+.legend-pin.art      { background: #8b4d9e; }
+.legend-pin.named    { background: var(--blue); }
+.legend-pin.cultural { background: var(--gold); color: #5b4a08; }
+.legend-pin.nature   { background: var(--green); }
+/* POI-style: just the icon, no circle, dark slate or green */
+.legend-poi { color: #2a2a32; }
+.legend-poi.tree { color: #4f7d4d; }
+/* Memory: small teal-tinted dot */
+.legend-memory {
+  width: 14px; height: 14px;
+  margin: 0 4px;
+  background: var(--teal);
+  opacity: 0.6;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 /* ── PROMPTS & TOASTS ── */
@@ -263,9 +438,22 @@ body {
   z-index: 800; background: var(--ink); color: var(--paper);
   padding: 10px 24px; border-radius: 24px; font-size: 14px; font-weight: 500;
   box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  pointer-events: none; opacity: 0; transition: opacity 0.4s;
+  pointer-events: auto; opacity: 0; transition: opacity 0.4s;
 }
 #click-prompt.visible { opacity: 1; }
+#click-prompt .rapid-exit {
+  color: var(--gold);
+  text-decoration: none;
+  font-weight: 600;
+}
+#click-prompt .rapid-exit:hover { text-decoration: underline; }
+#click-prompt kbd {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  font-family: 'Source Sans 3', monospace;
+}
 #toast {
   position: fixed; top: 72px; left: 50%;
   transform: translateX(-50%) translateY(-20px);
@@ -292,19 +480,27 @@ body {
 #config-banner.visible { display: block; }
 
 /* ── MARKERS ── */
-.marker-official {
+.marker-place {
   background: var(--blue); width: 28px; height: 28px;
   border-radius: 50%; border: 3px solid #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; color: #fff; cursor: pointer; transition: transform 0.2s;
 }
-.marker-official:hover { transform: scale(1.2); }
-.marker-official.cultural { background: var(--gold); }
-.marker-official.art { background: #8b4d9e; }
-.marker-official.nature { background: var(--green); }
-.marker-official.memorial { background: var(--accent); }
-.marker-official.housing { background: #6a5d8e; }
+.marker-place svg {
+  width: 16px; height: 16px;
+  display: block;
+}
+.marker-place .glyph-emoji { font-size: 14px; line-height: 1; }
+.marker-place:hover { transform: scale(1.2); }
+.marker-place.memorial { background: var(--accent); }
+.marker-place.art       { background: #8b4d9e; }
+.marker-place.named     { background: var(--blue); }
+.marker-place.cultural  { background: var(--gold); }
+.marker-place.nature    { background: var(--green); }
+.marker-place.building  { background: var(--blue); }
+.marker-place.housing   { background: #6a5d8e; }
+.marker-place.tree      { background: #4f7d4d; font-size: 16px; }
 
 .marker-memory {
   width: 22px; height: 22px; border-radius: 50%;
@@ -330,6 +526,104 @@ body {
   100% { box-shadow: 0 0 0 4px rgba(0,155,158,0.3), 0 2px 8px rgba(0,0,0,0.3); }
 }
 
+/* ── POI-STYLE MARKERS (wayfinding, trees) ──
+   Small icon + label below, no colored circle. Inspired by OpenFreeMap POIs. */
+.marker-poi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110px;
+  pointer-events: none; /* let only the inner icon receive clicks */
+}
+.marker-poi-icon {
+  font-size: 18px;
+  line-height: 1;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s;
+  color: #2a2a32;
+  filter: drop-shadow(0 1px 1px rgba(255,255,255,0.85))
+          drop-shadow(0 1px 2px rgba(0,0,0,0.18));
+}
+.marker-poi-icon:hover { transform: scale(1.18); }
+.marker-poi-icon svg {
+  width: 20px; height: 20px;
+  display: block;
+}
+/* Emoji-overridden icons keep emoji rendering instead of monochrome SVG. */
+.marker-poi-icon .glyph-emoji {
+  font-size: 18px;
+  line-height: 1;
+  filter: none;
+}
+.marker-poi.tree .marker-poi-icon { color: #4f7d4d; }
+.marker-poi.tree .marker-poi-icon svg { width: 18px; height: 18px; }
+
+.marker-poi-text {
+  margin-top: 2px;
+  pointer-events: none;
+  text-align: center;
+  max-width: 110px;
+}
+.marker-poi-label {
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow:
+    -1px -1px 0 rgba(255,255,255,0.95),
+     1px -1px 0 rgba(255,255,255,0.95),
+    -1px  1px 0 rgba(255,255,255,0.95),
+     1px  1px 0 rgba(255,255,255,0.95),
+     0    2px 4px rgba(0,0,0,0.12);
+}
+.marker-poi-sub {
+  margin-top: 1px;
+  font-family: 'Source Sans 3', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.55);
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 rgba(255,255,255,0.9),
+     1px -1px 0 rgba(255,255,255,0.9),
+    -1px  1px 0 rgba(255,255,255,0.9),
+     1px  1px 0 rgba(255,255,255,0.9);
+  display: none; /* shown only at high zoom (see body.zoom-high) */
+}
+
+/* Trees stay a bit smaller and quieter than buildings. */
+.marker-poi.tree .marker-poi-icon { font-size: 16px; }
+.marker-poi.tree .marker-poi-label {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #4f7d4d;
+  letter-spacing: 0.2px;
+}
+.marker-poi.tree .marker-poi-sub { color: rgba(79,125,77,0.6); }
+
+/* Subtitle visibility is gated by zoom tier. */
+body.zoom-high .marker-poi-sub { display: block; }
+
+/* Below z15 the body gets hide-poi-labels (set by app.js). */
+body.hide-poi-labels .marker-poi-text { display: none; }
+
+/* Collision-hidden labels — a single label rect can be hidden without
+   nuking the icon. */
+.marker-poi-text.label-hidden,
+.landmark-label.label-hidden { display: none; }
+
 /* ── LANDMARK LABELS ── */
 .landmark-label {
   font-family: 'Source Sans 3', sans-serif;
@@ -348,11 +642,113 @@ body {
   pointer-events: none;
 }
 
+/* ── RAPID ADD POPUP ── */
+.rapid-help {
+  background: rgba(0,155,158,0.06);
+  border: 1px solid rgba(0,155,158,0.18);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: rgba(0,0,0,0.7);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.rapid-help kbd {
+  background: rgba(0,0,0,0.08);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-family: 'Source Sans 3', monospace;
+}
+.rapid-popup {
+  min-width: 240px;
+}
+.rapid-popup-meta {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(0,0,0,0.5);
+  margin-bottom: 6px;
+}
+.rapid-popup .rapid-name-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid rgba(0,0,0,0.12);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 8px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.rapid-popup .rapid-name-input:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(0,155,158,0.15);
+}
+.rapid-popup-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.rapid-popup-actions button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+}
+.rapid-popup-actions .rapid-cancel {
+  background: #fff;
+  border-color: rgba(0,0,0,0.12);
+  color: var(--ink);
+}
+.rapid-popup-actions .rapid-cancel:hover { border-color: rgba(0,0,0,0.25); }
+.rapid-popup-actions .rapid-save {
+  background: var(--gold);
+  color: #000;
+}
+.rapid-popup-actions .rapid-save:hover { background: #e0b520; }
+.rapid-popup-actions .rapid-save:disabled { opacity: 0.6; cursor: wait; }
+
+/* Override a bit of Leaflet's default popup chrome to be cleaner */
+.leaflet-popup-content-wrapper { border-radius: 10px; }
+.leaflet-popup-content { margin: 12px 14px; }
+
 @media (max-width: 640px) {
   #sidebar { width: 100%; }
-  #legend { bottom: 12px; left: 12px; right: 12px; }
+
+  /* Header gets tighter — text labels off; smaller padding; smaller brand. */
+  #app-header { padding: 0 12px; }
   .header-btn span.label { display: none; }
+  .header-controls { gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
+  .header-controls::-webkit-scrollbar { display: none; }
+  .header-controls .header-btn { padding: 6px 10px; flex-shrink: 0; }
   .header-brand img { height: 22px; }
   .header-brand .divider { height: 20px; }
-  #app-header h1 { font-size: 18px; }
+  #app-header h1 { font-size: 16px; letter-spacing: 1.2px; }
+
+  /* Touch-target friendly user info: shorter user name, no badge wrap. */
+  .header-user-name { max-width: 110px; font-size: 12px; }
+  .header-user-name .user-badge { font-size: 9px; padding: 1px 5px; }
+
+  /* Legend defaults to collapsed on mobile — tap "Legend" to expand. */
+  #legend {
+    bottom: 12px;
+    left: 12px;
+    right: auto;
+    max-width: calc(100vw - 24px);
+  }
+  #legend.collapsed-mobile:not(.expanded) .legend-body { display: none; }
+  #legend.collapsed-mobile:not(.expanded) .legend-chevron { transform: rotate(-90deg); }
+  .legend-toggle { padding: 8px 14px; }
+
+  /* Click-prompt sits above the (collapsed) legend so they don't overlap. */
+  #click-prompt { bottom: 64px; max-width: calc(100vw - 32px); white-space: normal; text-align: center; }
+
+  /* Memory form & sidebar: a bit more breathing room on phones. */
+  .sidebar-body { padding: 16px 18px; }
 }

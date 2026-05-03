@@ -3,9 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CampHamp — Campus Memory Map</title>
+<title>Non Satis Loca Scire — Hampshire College Memory Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,29 +19,40 @@
 
 <header id="app-header">
   <div class="header-brand">
-    <img src="assets/hamplogowhite.png" alt="Hampshire College">
-    <div class="divider"></div>
-    <h1>Camp<span>Hamp</span></h1>
+    <h1>Non Satis <span>Loca Scire</span></h1>
   </div>
   <div class="header-controls">
-    <button class="header-btn active" id="btn-official" onclick="toggleLayer('official')">
-      <span class="label">Official </span>🏛
+    <button class="header-btn active" id="btn-layer-landmarks" onclick="toggleLayer('landmarks')">
+      <span class="label">Landmarks </span>🕊
     </button>
-    <button class="header-btn active" id="btn-memories" onclick="toggleLayer('memories')">
+    <button class="header-btn active" id="btn-layer-wayfinding" onclick="toggleLayer('wayfinding')">
+      <span class="label">Wayfinding </span>🏛
+    </button>
+    <button class="header-btn active" id="btn-layer-memories" onclick="toggleLayer('memories')">
       <span class="label">Memories </span>💭
     </button>
     <button class="header-btn" id="btn-add" onclick="startAddMode('memory')">
       + Memory
     </button>
-    <button class="header-btn admin-btn" id="btn-admin" onclick="startAddMode('official')">
-      ⚙ Admin
+    <button class="header-btn admin-btn" id="btn-add-place" onclick="startAddMode('place')" hidden>
+      + Place
     </button>
+    <button class="header-btn admin-btn" id="btn-add-rapid" onclick="startAddMode('rapid')" hidden title="Stamp many places at once">
+      ⚡ Many
+    </button>
+    <a class="header-btn admin-btn" id="btn-admin-portal" href="admin.html" hidden>⚙ Admin</a>
     <button class="header-btn" id="btn-tiles" onclick="cycleTileLayer()">
       🗺
     </button>
     <button class="header-btn" id="btn-recenter" onclick="recenterMap()" title="Re-center on Hampshire">
       ⌂
     </button>
+    <div class="divider"></div>
+    <a class="header-btn" id="btn-signin" href="login.html" hidden>Sign in</a>
+    <span class="header-user" id="header-user" hidden>
+      <span class="header-user-name" id="header-user-name"></span>
+      <button class="header-btn" id="btn-signout">Sign out</button>
+    </span>
   </div>
 </header>
 
@@ -57,20 +71,22 @@
   <div class="sidebar-body" id="sidebar-body"></div>
 </div>
 
-<div id="legend">
-  <h3>Map Legend</h3>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Buildings</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--gold)"></div> Cultural Sites</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#8b4d9e"></div> Art & Galleries</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Nature & Farm</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Memorials</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--teal);opacity:0.6"></div> User Memories</div>
+<div id="legend" class="collapsed-mobile">
+  <button class="legend-toggle" onclick="toggleLegend()" aria-label="Toggle legend">
+    <span class="legend-toggle-text">Legend</span>
+    <span class="legend-chevron">▾</span>
+  </button>
+  <div class="legend-body" id="legend-body">
+    <!-- Populated by app.js buildLegend() so icons stay in sync. -->
+  </div>
 </div>
 
 <div id="click-prompt"></div>
 <div id="toast"></div>
 
 <script src="config.js"></script>
+<script src="auth.js"></script>
+<script src="icons.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

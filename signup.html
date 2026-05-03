@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign up — Hampshire College Memory Map</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Staatliches&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+  <a class="auth-brand" href="index.html">
+    Non Satis <span>Loca Scire</span>
+  </a>
+  <h1 class="auth-title">Create your account</h1>
+  <p class="auth-sub">Tell us a bit about your connection to Hampshire.</p>
+
+  <form id="signup-form" class="auth-form">
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="f-email" required autocomplete="email">
+    </div>
+
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="f-password" required minlength="8" autocomplete="new-password">
+      <div class="hint">8+ characters</div>
+    </div>
+
+    <div class="form-group">
+      <label>Display name</label>
+      <input type="text" id="f-display-name" required maxlength="60"
+             placeholder="What should we call you?">
+    </div>
+
+    <div class="form-group">
+      <label>I'm a…</label>
+      <div class="tag-row" id="affiliation-row">
+        <button type="button" class="tag-btn" data-aff="alum">Alum</button>
+        <button type="button" class="tag-btn" data-aff="current_student">Current student</button>
+        <button type="button" class="tag-btn" data-aff="parent">Parent</button>
+        <button type="button" class="tag-btn" data-aff="faculty">Faculty</button>
+        <button type="button" class="tag-btn" data-aff="staff">Staff</button>
+        <button type="button" class="tag-btn" data-aff="other">Other</button>
+      </div>
+    </div>
+
+    <!-- Conditional fields, shown based on affiliation. -->
+    <div id="cond-student" class="cond-block" hidden>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start term</label>
+          <select id="f-start-season">
+            <option value="Fall">Fall</option>
+            <option value="Spring">Spring</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Start year</label>
+          <input type="number" id="f-start-year-student" min="1965" max="2100" placeholder="e.g. 2018">
+        </div>
+      </div>
+    </div>
+
+    <div id="cond-parent" class="cond-block" hidden>
+      <div class="form-group">
+        <label>Year your child started</label>
+        <input type="number" id="f-start-year-parent" min="1965" max="2100" placeholder="e.g. 2010">
+      </div>
+    </div>
+
+    <div id="cond-fs" class="cond-block" hidden>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start year</label>
+          <input type="number" id="f-start-year-fs" min="1965" max="2100" placeholder="e.g. 2010">
+        </div>
+        <div class="form-group">
+          <label>End year</label>
+          <input type="number" id="f-end-year-fs" min="1965" max="2100" placeholder="(blank = present)">
+        </div>
+      </div>
+    </div>
+
+    <div id="cond-other" class="cond-block" hidden>
+      <div class="form-group">
+        <label>How are you connected?</label>
+        <input type="text" id="f-aff-other" maxlength="80"
+               placeholder="e.g. local resident, friend of an alum…">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Why are you joining? (optional)</label>
+      <textarea id="f-why" maxlength="500"
+                placeholder="A sentence or two helps us welcome you."></textarea>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submit-btn">Create account</button>
+
+    <div class="auth-error" id="error-msg" hidden></div>
+  </form>
+
+  <p class="auth-foot">
+    Already have an account? <a href="login.html">Sign in</a>
+  </p>
+</div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+const { db, isConfigured } = window.CampHampAuth;
+
+let selectedAff = null;
+
+document.querySelectorAll('#affiliation-row .tag-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#affiliation-row .tag-btn')
+      .forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedAff = btn.dataset.aff;
+    showConditional(selectedAff);
+  });
+});
+
+function showConditional(aff) {
+  const groups = {
+    'cond-student': aff === 'alum' || aff === 'current_student',
+    'cond-parent':  aff === 'parent',
+    'cond-fs':      aff === 'faculty' || aff === 'staff',
+    'cond-other':   aff === 'other',
+  };
+  for (const [id, show] of Object.entries(groups)) {
+    document.getElementById(id).hidden = !show;
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.hidden = false;
+}
+function clearError() {
+  document.getElementById('error-msg').hidden = true;
+}
+
+document.getElementById('signup-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearError();
+
+  if (!isConfigured) {
+    showError('Supabase is not configured. Edit config.js to enable signup.');
+    return;
+  }
+
+  const email = document.getElementById('f-email').value.trim();
+  const password = document.getElementById('f-password').value;
+  const displayName = document.getElementById('f-display-name').value.trim();
+  const why = document.getElementById('f-why').value.trim();
+
+  if (!selectedAff) { showError('Please choose how you\'re connected to Hampshire.'); return; }
+
+  // Affiliation-specific validation + payload
+  const meta = {
+    display_name: displayName,
+    affiliation: selectedAff,
+    why_joining: why,
+  };
+
+  if (selectedAff === 'alum' || selectedAff === 'current_student') {
+    const yr = document.getElementById('f-start-year-student').value;
+    const season = document.getElementById('f-start-season').value;
+    if (!yr) { showError('Please enter your start year.'); return; }
+    meta.start_year = yr;
+    meta.start_season = season;
+  } else if (selectedAff === 'parent') {
+    const yr = document.getElementById('f-start-year-parent').value;
+    if (!yr) { showError('Please enter the year your child started.'); return; }
+    meta.start_year = yr;
+  } else if (selectedAff === 'faculty' || selectedAff === 'staff') {
+    const start = document.getElementById('f-start-year-fs').value;
+    const end = document.getElementById('f-end-year-fs').value;
+    if (!start) { showError('Please enter your start year.'); return; }
+    meta.start_year = start;
+    if (end) meta.end_year = end;
+  } else if (selectedAff === 'other') {
+    const other = document.getElementById('f-aff-other').value.trim();
+    if (!other) { showError('Please describe how you\'re connected.'); return; }
+    meta.affiliation_other = other;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>Creating account…';
+
+  try {
+    const { data, error } = await db.auth.signUp({
+      email,
+      password,
+      options: { data: meta },
+    });
+    if (error) throw error;
+
+    // If email confirmation is enabled in Supabase, no session is returned.
+    if (!data.session) {
+      window.location.href = 'login.html?confirm=1';
+      return;
+    }
+    window.location.href = 'index.html';
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Signup failed.');
+    btn.disabled = false;
+    btn.textContent = 'Create account';
+  }
+});
+</script>
+
+</body>
+</html>

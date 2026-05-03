@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Hampshire College Memory Map</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Staatliches&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="auth.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-card">
+  <a class="auth-brand" href="index.html">
+    Non Satis <span>Loca Scire</span>
+  </a>
+  <h1 class="auth-title">Sign in</h1>
+
+  <div id="confirm-banner" class="auth-info" hidden>
+    Check your email to confirm your account, then come back here to sign in.
+  </div>
+
+  <form id="login-form" class="auth-form">
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="f-email" required autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="f-password" required autocomplete="current-password">
+    </div>
+
+    <button type="submit" class="submit-btn" id="submit-btn">Sign in</button>
+
+    <div class="auth-error" id="error-msg" hidden></div>
+  </form>
+
+  <p class="auth-foot">
+    New here? <a href="signup.html">Create an account</a>
+  </p>
+</div>
+
+<script src="config.js"></script>
+<script src="auth.js"></script>
+<script>
+const { db, isConfigured } = window.CampHampAuth;
+
+if (new URLSearchParams(location.search).get('confirm') === '1') {
+  document.getElementById('confirm-banner').hidden = false;
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg; el.hidden = false;
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('error-msg').hidden = true;
+
+  if (!isConfigured) {
+    showError('Supabase is not configured. Edit config.js.');
+    return;
+  }
+
+  const email = document.getElementById('f-email').value.trim();
+  const password = document.getElementById('f-password').value;
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading-spinner"></span>Signing in…';
+
+  try {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // Block disabled accounts from continuing.
+    const { data: profile } = await db
+      .from('profiles').select('status').eq('id', data.user.id).maybeSingle();
+    if (profile && profile.status === 'disabled') {
+      await db.auth.signOut();
+      throw new Error('This account has been disabled. Contact an administrator.');
+    }
+
+    window.location.href = 'index.html';
+  } catch (err) {
+    console.error(err);
+    showError(err.message || 'Sign in failed.');
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+});
+</script>
+
+</body>
+</html>

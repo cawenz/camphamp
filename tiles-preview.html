@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tile Preview — Hampshire College Memory Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  body {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    margin: 0;
+    background: #f7f7f5;
+    color: #1a1a1a;
+  }
+  header {
+    padding: 24px 32px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    background: #fff;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; color: rgba(0,0,0,0.6); font-size: 14px; line-height: 1.5; }
+  header .hint { margin-top: 8px; font-size: 13px; color: rgba(0,0,0,0.45); }
+  main { padding: 24px 32px 48px; }
+  section { margin-bottom: 32px; }
+  section h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(0,0,0,0.5);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card-title {
+    padding: 10px 14px 4px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .card-slug {
+    padding: 0 14px 8px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: rgba(0,0,0,0.5);
+    user-select: all;
+  }
+  .card-map {
+    width: 100%;
+    height: 280px;
+    background: #ddd;
+  }
+  .controls {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  .controls label { margin-right: 14px; user-select: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CARTO basemap preview</h1>
+  <p>All views are synced — pan or zoom one and the rest follow. Click a slug to select it for copying.</p>
+  <p class="hint">For your label-on-your-own-data goal, focus on the <strong>No labels</strong> row.</p>
+  <div class="controls">
+    <label><input type="checkbox" id="retina" checked> Retina (@2x) tiles</label>
+    <label><input type="checkbox" id="sync" checked> Sync pan/zoom</label>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>Default (with labels)</h2>
+    <div class="grid" id="grid-default"></div>
+  </section>
+
+  <section>
+    <h2>No labels — base layers only</h2>
+    <div class="grid" id="grid-nolabels"></div>
+  </section>
+
+  <section>
+    <h2>Labels-only overlays (rendered on top of Esri Satellite)</h2>
+    <div class="grid" id="grid-overlay"></div>
+  </section>
+
+  <section>
+    <h2>Other free, no-key bases (Esri + Wikimedia)</h2>
+    <p style="font-size:13px;color:rgba(0,0,0,0.55);margin:-6px 0 12px;">
+      All free of charge with attribution. Esri's tile services have been around for years
+      and are reliable. Wikimedia's tiles are OSM-based, used by Wikipedia itself.
+    </p>
+    <div class="grid" id="grid-other"></div>
+  </section>
+
+  <section>
+    <h2>
+      Vector — OpenFreeMap (MapLibre GL)
+      <label style="font-size:13px;font-weight:500;text-transform:none;letter-spacing:0;color:rgba(0,0,0,0.55);margin-left:14px;">
+        <input type="checkbox" id="ofm-labels" checked> Labels
+      </label>
+    </h2>
+    <p style="font-size:13px;color:rgba(0,0,0,0.55);margin:-6px 0 12px;">
+      Vector tiles, not raster — these maps render via MapLibre GL JS, not Leaflet.
+      Because they're vector, label visibility is a runtime toggle (the symbol layers
+      get hidden/shown live). Raster styles can't do this — labels are baked into the PNGs.
+    </p>
+    <div class="grid" id="grid-openfreemap"></div>
+  </section>
+</main>
+
+<script>
+const HAMPSHIRE = [42.325, -72.530];
+const ZOOM = 16;
+
+// Each entry: { name, slug, kind: 'base'|'overlay' }
+const STYLES = {
+  default: [
+    { name: 'Voyager',     slug: 'rastertiles/voyager' },
+    { name: 'Positron',    slug: 'light_all' },
+    { name: 'DarkMatter',  slug: 'dark_all' },
+  ],
+  nolabels: [
+    { name: 'Voyager — no labels',    slug: 'rastertiles/voyager_nolabels' },
+    { name: 'Positron — no labels',   slug: 'light_nolabels' },
+    { name: 'DarkMatter — no labels', slug: 'dark_nolabels' },
+  ],
+  overlay: [
+    { name: 'Voyager labels',    slug: 'rastertiles/voyager_only_labels' },
+    { name: 'Positron labels',   slug: 'light_only_labels' },
+    { name: 'DarkMatter labels', slug: 'dark_only_labels' },
+  ],
+};
+
+const ATTRIB = '&copy; OpenStreetMap contributors &copy; CARTO';
+const SAT_ATTRIB = '&copy; Esri, Maxar, Earthstar Geographics';
+const ESRI_ATTRIB = '&copy; Esri';
+const WIKI_ATTRIB = 'Wikimedia maps | Map data &copy; OpenStreetMap contributors';
+const OFM_ATTRIB = '&copy; OpenFreeMap contributors &copy; OpenMapTiles &copy; OpenStreetMap';
+
+// Esri ArcGIS Online services — free, no key, /{z}/{y}/{x} (note y before x).
+const ESRI_BASES = [
+  { name: 'Esri Topo',         path: 'World_Topo_Map',                  hasLabels: true,  maxZoom: 19 },
+  { name: 'Esri Streets',      path: 'World_Street_Map',                hasLabels: true,  maxZoom: 19 },
+  { name: 'Esri NatGeo',       path: 'NatGeo_World_Map',                hasLabels: true,  maxZoom: 16 },
+  { name: 'Esri Imagery',      path: 'World_Imagery',                   hasLabels: false, maxZoom: 19 },
+  { name: 'Esri Hillshade',    path: 'Elevation/World_Hillshade',       hasLabels: false, maxZoom: 19 },
+  { name: 'Esri Shaded Relief',path: 'World_Shaded_Relief',             hasLabels: false, maxZoom: 13 },
+  { name: 'Esri Physical',     path: 'World_Physical_Map',              hasLabels: true,  maxZoom: 8  },
+];
+function esriUrl(path) {
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/${path}/MapServer/tile/{z}/{y}/{x}`;
+}
+
+// OpenFreeMap vector style URLs (MapLibre GL).
+const OFM_STYLES = [
+  { name: 'OpenFreeMap — Positron', style: 'https://tiles.openfreemap.org/styles/positron' },
+  { name: 'OpenFreeMap — Liberty',  style: 'https://tiles.openfreemap.org/styles/liberty' },
+  { name: 'OpenFreeMap — Bright',   style: 'https://tiles.openfreemap.org/styles/bright' },
+];
+
+let allMaps = [];
+let suppressSync = false;
+
+const retinaInput = document.getElementById('retina');
+const syncInput = document.getElementById('sync');
+
+function tileUrl(slug) {
+  const r = retinaInput.checked ? '{r}' : '';
+  return `https://{s}.basemaps.cartocdn.com/${slug}/{z}/{x}/{y}${r}.png`;
+}
+function rebuildAll() {
+  // Wipe all maps and rebuild — easiest way to swap retina on/off.
+  allMaps.forEach(({ map }) => map.remove());
+  allMaps = [];
+  document.querySelectorAll('.card').forEach(c => c.remove());
+  build();
+}
+
+function makeCard(parent, name, slug) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-title">${name}</div>
+    <div class="card-slug">${slug}</div>
+    <div class="card-map"></div>
+  `;
+  parent.appendChild(card);
+  return card.querySelector('.card-map');
+}
+
+function build() {
+  STYLES.default.forEach(s => {
+    const el = makeCard(document.getElementById('grid-default'), s.name, s.slug);
+    const m = L.map(el, { zoomControl: false, attributionControl: false })
+              .setView(HAMPSHIRE, ZOOM);
+    L.tileLayer(tileUrl(s.slug), { attribution: ATTRIB, maxZoom: 20 }).addTo(m);
+    L.control.attribution({ prefix: false }).addAttribution(ATTRIB).addTo(m);
+    bindSync(m);
+    allMaps.push({ map: m });
+  });
+
+  STYLES.nolabels.forEach(s => {
+    const el = makeCard(document.getElementById('grid-nolabels'), s.name, s.slug);
+    const m = L.map(el, { zoomControl: false, attributionControl: false })
+              .setView(HAMPSHIRE, ZOOM);
+    L.tileLayer(tileUrl(s.slug), { attribution: ATTRIB, maxZoom: 20 }).addTo(m);
+    L.control.attribution({ prefix: false }).addAttribution(ATTRIB).addTo(m);
+    bindSync(m);
+    allMaps.push({ map: m });
+  });
+
+  STYLES.overlay.forEach(s => {
+    const el = makeCard(document.getElementById('grid-overlay'), s.name, s.slug);
+    const m = L.map(el, { zoomControl: false, attributionControl: false })
+              .setView(HAMPSHIRE, ZOOM);
+    // Satellite base
+    L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: SAT_ATTRIB, maxZoom: 19 }
+    ).addTo(m);
+    // CARTO labels overlay
+    L.tileLayer(tileUrl(s.slug), { attribution: ATTRIB, maxZoom: 20 }).addTo(m);
+    L.control.attribution({ prefix: false })
+      .addAttribution(SAT_ATTRIB + ' &middot; ' + ATTRIB)
+      .addTo(m);
+    bindSync(m);
+    allMaps.push({ map: m });
+  });
+
+  // Esri family + Wikimedia
+  ESRI_BASES.forEach(s => {
+    const labelTag = s.hasLabels ? ' (with labels)' : ' (no labels)';
+    const el = makeCard(document.getElementById('grid-other'), s.name + labelTag, s.path);
+    const m = L.map(el, { zoomControl: false, attributionControl: false })
+              .setView(HAMPSHIRE, ZOOM);
+    L.tileLayer(esriUrl(s.path), { attribution: ESRI_ATTRIB, maxZoom: s.maxZoom }).addTo(m);
+    L.control.attribution({ prefix: false }).addAttribution(ESRI_ATTRIB).addTo(m);
+    bindSync(m);
+    allMaps.push({ map: m });
+  });
+
+  // Wikimedia
+  const wikiEl = makeCard(
+    document.getElementById('grid-other'),
+    'Wikimedia OSM (with labels)',
+    'maps.wikimedia.org/osm-intl'
+  );
+  const wikiMap = L.map(wikiEl, { zoomControl: false, attributionControl: false })
+                  .setView(HAMPSHIRE, ZOOM);
+  L.tileLayer('https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}{r}.png', {
+    attribution: WIKI_ATTRIB, maxZoom: 19,
+  }).addTo(wikiMap);
+  L.control.attribution({ prefix: false }).addAttribution(WIKI_ATTRIB).addTo(wikiMap);
+  bindSync(wikiMap);
+  allMaps.push({ map: wikiMap });
+
+  // OpenFreeMap (vector tiles via MapLibre GL — Leaflet sync skipped)
+  OFM_STYLES.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="card-title">${s.name}</div>
+      <div class="card-slug">${s.style}</div>
+      <div class="card-map"></div>
+    `;
+    document.getElementById('grid-openfreemap').appendChild(card);
+    const el = card.querySelector('.card-map');
+    try {
+      const m = new maplibregl.Map({
+        container: el,
+        style: s.style,
+        center: [HAMPSHIRE[1], HAMPSHIRE[0]], // MapLibre is [lng, lat]
+        zoom: ZOOM - 1,
+        attributionControl: { compact: true },
+      });
+      m.on('load', () => {
+        ofmMaps.push(m);
+        applyOfmLabels(m, document.getElementById('ofm-labels').checked);
+      });
+    } catch (err) {
+      el.innerHTML = `<div style="padding:14px;font-size:13px;color:#a23;">
+        Failed to load: ${err.message}
+      </div>`;
+    }
+  });
+}
+
+// Track OpenFreeMap (MapLibre) instances + label toggle plumbing.
+const ofmMaps = [];
+function applyOfmLabels(m, show) {
+  // A "label" in a MapLibre style is any layer whose type is 'symbol'
+  // and that uses a text-field. Toggle their visibility.
+  const layers = m.getStyle().layers || [];
+  layers.forEach(layer => {
+    if (layer.type !== 'symbol') return;
+    const hasText = layer.layout && (layer.layout['text-field'] != null);
+    if (!hasText) return;
+    m.setLayoutProperty(layer.id, 'visibility', show ? 'visible' : 'none');
+  });
+}
+document.getElementById('ofm-labels').addEventListener('change', e => {
+  ofmMaps.forEach(m => applyOfmLabels(m, e.target.checked));
+});
+
+function bindSync(m) {
+  m.on('move zoom', () => {
+    if (suppressSync || !syncInput.checked) return;
+    suppressSync = true;
+    const c = m.getCenter();
+    const z = m.getZoom();
+    allMaps.forEach(({ map: other }) => {
+      if (other === m) return;
+      other.setView(c, z, { animate: false });
+    });
+    suppressSync = false;
+  });
+}
+
+retinaInput.addEventListener('change', rebuildAll);
+build();
+</script>
+
+</body>
+</html>
