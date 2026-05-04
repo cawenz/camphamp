@@ -22,6 +22,15 @@ if (!IS_CONFIGURED) {
 
 const LAYERS = ['landmarks', 'wayfinding', 'trees'];
 
+// Default zoom range per layer, applied when a place's own min/max is null.
+// These let curators leave the form blank for the common case and have
+// sensible "only visible when this layer makes sense" behavior.
+const LAYER_DEFAULT_ZOOM = {
+  landmarks:  { min: 15, max: null },  // hide when zoomed out past campus context
+  wayfinding: { min: 16, max: null },  // buildings only when focused on campus
+  trees:      { min: 18, max: null },  // very close-up only
+};
+
 const KIND_META = {
   memorial:    { layer: 'landmarks',  label: 'Memorial',    icon: '🕊', cls: 'memorial' },
   public_art:  { layer: 'landmarks',  label: 'Public art',  icon: '🎨', cls: 'art' },
@@ -99,28 +108,57 @@ map = L.map('map', {
 });
 L.control.zoom({ position: 'topright' }).addTo(map);
 
-// Helper: build an OpenFreeMap (vector) layer with all text labels hidden.
-// Re-applies the hide whenever the underlying GL style is (re-)loaded.
+// Helper: build an OpenFreeMap (vector) layer whose native text labels can
+// be flipped on/off at runtime via the user's preference.
+// We re-apply the chosen visibility whenever the underlying GL style is loaded.
 const OFM_ATTRIB = '&copy; OpenFreeMap &copy; OpenMapTiles &copy; OpenStreetMap';
+
+// Global preference, persisted to localStorage. Default: hidden (CampHamp's
+// custom labels carry the map; users can flip on for context).
+let nativeLabelsOn = (() => {
+  try { return localStorage.getItem('nlsm-native-labels') === 'on'; }
+  catch { return false; }
+})();
+
+function applyNativeLabelsTo(gl) {
+  const layers = (gl.getStyle() && gl.getStyle().layers) || [];
+  const visibility = nativeLabelsOn ? 'visible' : 'none';
+  layers.forEach(l => {
+    if (l.type !== 'symbol') return;
+    const hasText = l.layout && l.layout['text-field'] != null;
+    if (!hasText) return;
+    gl.setLayoutProperty(l.id, 'visibility', visibility);
+  });
+}
+
+// Track every OFM-backed Leaflet layer so the toggle can update them all.
+const ofmLeafletLayers = [];
 function makeOFMLayer(styleUrl) {
   const layer = L.maplibreGL({ style: styleUrl, attribution: OFM_ATTRIB });
-  function hideLabelsFor(gl) {
-    const layers = (gl.getStyle() && gl.getStyle().layers) || [];
-    layers.forEach(l => {
-      if (l.type !== 'symbol') return;
-      const hasText = l.layout && l.layout['text-field'] != null;
-      if (!hasText) return;
-      gl.setLayoutProperty(l.id, 'visibility', 'none');
-    });
-  }
+  ofmLeafletLayers.push(layer);
   layer.on('add', () => {
     const gl = layer.getMaplibreMap ? layer.getMaplibreMap() : layer._glMap;
     if (!gl) return;
-    if (gl.isStyleLoaded()) hideLabelsFor(gl);
-    gl.on('load', () => hideLabelsFor(gl));
-    gl.on('styledata', () => hideLabelsFor(gl));
+    if (gl.isStyleLoaded()) applyNativeLabelsTo(gl);
+    gl.on('load', () => applyNativeLabelsTo(gl));
+    gl.on('styledata', () => applyNativeLabelsTo(gl));
   });
   return layer;
+}
+
+function toggleNativeLabels() {
+  nativeLabelsOn = !nativeLabelsOn;
+  try { localStorage.setItem('nlsm-native-labels', nativeLabelsOn ? 'on' : 'off'); } catch {}
+  // Update every OFM layer (the active one, plus any cached preconnected layers)
+  ofmLeafletLayers.forEach(layer => {
+    const gl = layer.getMaplibreMap ? layer.getMaplibreMap() : layer._glMap;
+    if (gl) applyNativeLabelsTo(gl);
+  });
+  refreshNativeLabelsButton();
+}
+function refreshNativeLabelsButton() {
+  const btn = document.getElementById('btn-native-labels');
+  if (btn) btn.classList.toggle('active', nativeLabelsOn);
 }
 
 const tileLayers = [
@@ -137,6 +175,12 @@ const tileLayers = [
 ];
 let currentTileIdx = 0;
 tileLayers[0].layer.addTo(map);
+function syncTileBodyClass() {
+  const isSat = tileLayers[currentTileIdx].name === 'Satellite';
+  document.body.classList.toggle('satellite-active', isSat);
+  const labelsBtn = document.getElementById('btn-native-labels');
+  if (labelsBtn) labelsBtn.disabled = isSat; // no native labels on raster satellite
+}
 
 function cycleTileLayer() {
   map.removeLayer(tileLayers[currentTileIdx].layer);
@@ -146,6 +190,7 @@ function cycleTileLayer() {
   if (next.layer.bringToBack) next.layer.bringToBack();
   const btn = document.getElementById('btn-tiles');
   btn.innerHTML = (next.icon || '🗺') + ' ' + next.name;
+  syncTileBodyClass();
 }
 
 LAYERS.forEach(l => { placeLayers[l] = L.layerGroup().addTo(map); });
@@ -283,9 +328,12 @@ function renderAll() {
     if (!placeLayers[layer]) return;
     if (!layerVisible[layer]) return;
 
-    // Zoom-range filter: skip places outside their visibility window.
-    if (place.min_zoom != null && z < place.min_zoom) return;
-    if (place.max_zoom != null && z > place.max_zoom) return;
+    // Zoom-range filter: per-place value wins; otherwise fall back to layer default.
+    const defaults = LAYER_DEFAULT_ZOOM[layer] || { min: null, max: null };
+    const minZ = place.min_zoom != null ? place.min_zoom : defaults.min;
+    const maxZ = place.max_zoom != null ? place.max_zoom : defaults.max;
+    if (minZ != null && z < minZ) return;
+    if (maxZ != null && z > maxZ) return;
 
     placeLayers[layer].addLayer(createPlaceMarker(place));
     // Landmarks get a separate prominent text label off to the side.
@@ -867,7 +915,8 @@ function showPlaceForm() {
         </div>
       </div>
       <div class="hint" style="margin-top:6px;">
-        Map opens at zoom 16. Leave blank for always-visible.
+        Map opens at zoom 16. Leave blank to use the layer default
+        (Landmarks z15+, Wayfinding z16+, Trees z18+).
       </div>
     </div>
     <div class="form-group">
@@ -1594,6 +1643,8 @@ function toggleLegend() {
 
 (async function boot() {
   buildLegend();
+  syncTileBodyClass();
+  refreshNativeLabelsButton();
   await refreshAuthUI();
   await loadAll();
   refreshLabelVisibility();
