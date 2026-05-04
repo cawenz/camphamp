@@ -23,14 +23,12 @@ if (!IS_CONFIGURED) {
 const LAYERS = ['landmarks', 'wayfinding', 'trees'];
 
 const KIND_META = {
-  memorial:        { layer: 'landmarks',  label: 'Memorial',        icon: '🕊', cls: 'memorial' },
-  public_art:      { layer: 'landmarks',  label: 'Public art',      icon: '🎨', cls: 'art' },
-  named_location:  { layer: 'landmarks',  label: 'Named location',  icon: '🏷', cls: 'named' },
-  cultural:        { layer: 'landmarks',  label: 'Cultural site',   icon: '📜', cls: 'cultural' },
-  nature:          { layer: 'landmarks',  label: 'Nature spot',     icon: '🌿', cls: 'nature' },
-  building:        { layer: 'wayfinding', label: 'Building',        icon: '🏛', cls: 'building' },
-  housing:         { layer: 'wayfinding', label: 'Housing',         icon: '🏘', cls: 'housing' },
-  tree:            { layer: 'trees',      label: 'Tree',            icon: '🌳', cls: 'tree' },
+  memorial:    { layer: 'landmarks',  label: 'Memorial',    icon: '🕊', cls: 'memorial' },
+  public_art:  { layer: 'landmarks',  label: 'Public art',  icon: '🎨', cls: 'art' },
+  site:        { layer: 'landmarks',  label: 'Site',        icon: '📍', cls: 'site' },
+  building:    { layer: 'wayfinding', label: 'Building',    icon: '🏛', cls: 'building' },
+  housing:     { layer: 'wayfinding', label: 'Housing',     icon: '🏘', cls: 'housing' },
+  tree:        { layer: 'trees',      label: 'Tree',        icon: '🌳', cls: 'tree' },
 };
 function kindsForLayer(layer) {
   return Object.entries(KIND_META).filter(([, m]) => m.layer === layer).map(([k]) => k);

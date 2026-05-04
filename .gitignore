@@ -11,3 +11,6 @@ Thumbs.db
 .env
 .env.local
 config.js
+
+# Wrangler local state
+.wrangler/

@@ -26,28 +26,11 @@ const ICONS = {
     </svg>
   `,
 
-  // named_location — bookmark
-  named_location: `
+  // site — map-pin (catch-all "this is a place" landmark)
+  site: `
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z"/>
-    </svg>
-  `,
-
-  // cultural — scroll with text lines
-  cultural: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"/>
-      <path d="M19 17V5a2 2 0 0 0-2-2H4"/>
-      <path d="M15 8h-5"/>
-      <path d="M15 12h-5"/>
-    </svg>
-  `,
-
-  // nature — leaf
-  nature: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96a1 1 0 0 1 1.8.4l1 11A7 7 0 0 1 11 20Z"/>
-      <path d="M2 21c0-3 1.85-5.36 5.08-6"/>
+      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/>
+      <circle cx="12" cy="10" r="3"/>
     </svg>
   `,
 
