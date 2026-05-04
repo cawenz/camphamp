@@ -59,6 +59,12 @@ let rapidPriority = 0;     // session default for label_priority
 let rapidPopup = null;     // currently-open Leaflet popup, if any
 let rapidCount = 0;        // places saved during the current rapid session
 
+// Edit mode state — when set, the form is editing an existing row
+// rather than creating a new one. Cleared by exitAddMode().
+let editingPlace = null;
+let editingMemory = null;
+let existingImagePath = null; // current image path during edit; cleared if user clicks Remove photo
+
 // ── Demo fallback ──
 const demoMemories = [
   { id: 'd1', lat: 42.3247, lng: -72.5312, title: "Div III defense — I did it!", author_name: "Sarah K. '18", category: "academic",
@@ -452,6 +458,8 @@ function showMemoryDetail(mem) {
   openSidebar(mem.title);
   const body = document.getElementById('sidebar-body');
   const imgUrl = getImageUrl(mem.image_path);
+  const canEdit = currentProfile
+    && (mem.user_id === currentProfile.id || currentProfile.role === 'admin');
   body.innerHTML = `
     <div class="memory-detail">
       <span class="category-badge ${mem.category || 'personal'}">${mem.category || 'memory'}</span>
@@ -460,6 +468,11 @@ function showMemoryDetail(mem) {
       <p class="author">${escapeAttr(mem.author_name)}</p>
       ${mem.date_text ? `<p class="meta">${escapeAttr(mem.date_text)}</p>` : ''}
       ${renderLinks(mem.links)}
+      ${canEdit ? `
+        <div class="detail-actions">
+          <button class="action-btn" onclick='startEditMemoryById("${escapeAttr(mem.id)}")'>Edit</button>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -469,6 +482,7 @@ function showPlaceDetail(place) {
   const body = document.getElementById('sidebar-body');
   const imgUrl = getImageUrl(place.image_path);
   const meta = KIND_META[place.kind] || { label: place.kind, cls: 'building' };
+  const isAdmin = currentProfile?.role === 'admin';
   body.innerHTML = `
     <div class="official-detail">
       <span class="type-badge ${meta.cls}">${escapeAttr(meta.label)}</span>
@@ -476,8 +490,19 @@ function showPlaceDetail(place) {
       ${place.description ? `<p class="description">${escapeAttr(place.description)}</p>` : ''}
       ${renderDetailFields(place.details)}
       ${renderLinks(place.links)}
+      ${isAdmin ? `
+        <div class="detail-actions">
+          <button class="action-btn" onclick='startEditPlaceById("${escapeAttr(place.id)}")'>Edit</button>
+        </div>
+      ` : ''}
     </div>
   `;
+}
+
+// Indirection so onclick attribute can pass just the id (avoids serializing the whole place object).
+function startEditPlaceById(id) {
+  const place = allPlaces.find(p => p.id === id);
+  if (place) startEditPlace(place);
 }
 
 
@@ -587,6 +612,9 @@ function exitAddMode() {
   if (rapidPopup) { map.closePopup(rapidPopup); rapidPopup = null; }
   rapidCount = 0;
   uploadedFile = null;
+  editingPlace = null;
+  editingMemory = null;
+  existingImagePath = null;
   addMode = null;
 }
 
@@ -674,48 +702,86 @@ function locationPickerHTML() {
 // ═══════════════════════════════════════════════════════════
 
 function showMemoryForm() {
-  openSidebar('Add a Memory');
+  const isEdit = !!editingMemory;
+  openSidebar(isEdit ? '✏️ Edit Memory' : 'Add a Memory');
   const body = document.getElementById('sidebar-body');
   const badge = currentProfile ? window.CampHampAuth.formatBadge(currentProfile) : '';
   const authorLine = currentProfile
     ? `<div class="memory-author-display">Posting as <strong>${escapeAttr(currentProfile.display_name)}</strong>${badge ? ` <span class="user-badge">${escapeAttr(badge)}</span>` : ''}</div>`
     : '';
+
+  const m = editingMemory || {};
+  if (isEdit) selectedCat = m.category || 'personal';
+  const cats = ['personal','academic','social','nature','art'];
+  const linkRows = (() => {
+    const rows = (Array.isArray(m.links) ? m.links : []).slice(0, 3);
+    while (rows.length < 3) rows.push({label:'', url:''});
+    return rows;
+  })();
+  const existingImageUrl = isEdit ? getImageUrl(existingImagePath) : null;
+
   body.innerHTML = `
     ${locationPickerHTML()}
     ${authorLine}
     <div class="form-group">
       <label>Memory Title</label>
-      <input type="text" id="f-title" placeholder="Give this memory a name">
+      <input type="text" id="f-title" placeholder="Give this memory a name"
+             value="${escapeAttr(m.title || '')}">
     </div>
     <div class="form-group">
       <label>Category</label>
       <div class="tag-row" id="cat-row">
-        <button class="tag-btn" data-cat="personal" onclick="selectCat(this)">Personal</button>
-        <button class="tag-btn" data-cat="academic" onclick="selectCat(this)">Academic</button>
-        <button class="tag-btn" data-cat="social" onclick="selectCat(this)">Social</button>
-        <button class="tag-btn" data-cat="nature" onclick="selectCat(this)">Nature</button>
-        <button class="tag-btn" data-cat="art" onclick="selectCat(this)">Art</button>
+        ${cats.map(c => `
+          <button class="tag-btn ${selectedCat === c ? 'selected' : ''}" data-cat="${c}"
+                  onclick="selectCat(this)">
+            ${c.charAt(0).toUpperCase() + c.slice(1)}
+          </button>
+        `).join('')}
       </div>
     </div>
     <div class="form-group">
       <label>Your Memory</label>
-      <textarea id="f-desc" placeholder="What happened here? What do you remember?"></textarea>
+      <textarea id="f-desc" placeholder="What happened here? What do you remember?">${escapeAttr(m.description || '')}</textarea>
     </div>
     <div class="form-group">
       <label>When?</label>
-      <input type="text" id="f-date" placeholder="e.g. Spring 2016, October 2019">
+      <input type="text" id="f-date" placeholder="e.g. Spring 2016, October 2019"
+             value="${escapeAttr(m.date_text || '')}">
     </div>
-    ${linkFieldsHTML()}
+    <div class="form-group">
+      <label>Links (optional — up to 3)</label>
+      <div class="link-input-group">
+        ${linkRows.map((l, i) => `
+          <div class="link-row">
+            <input type="text" id="f-link-label-${i+1}" placeholder="Label" value="${escapeAttr(l.label || '')}">
+            <input type="url"  id="f-link-url-${i+1}"   placeholder="https://..." value="${escapeAttr(l.url || '')}">
+          </div>
+        `).join('')}
+      </div>
+    </div>
     <div class="form-group">
       <label>Photo (optional)</label>
+      ${existingImageUrl ? `
+        <div class="existing-photo">
+          <img src="${existingImageUrl}" alt="Current photo">
+          <button type="button" class="link-btn-danger" onclick="removeExistingPhoto()">Remove photo</button>
+        </div>
+      ` : ''}
       <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()">
-        <p>📷 <strong>Click to upload</strong> or drag & drop</p>
+        <p>📷 <strong>${existingImageUrl ? 'Replace' : 'Click to upload'}</strong> or drag & drop</p>
         <p style="font-size:11px;margin-top:4px">JPG, PNG — auto-compressed for you</p>
         <input type="file" id="file-input" accept="image/*" onchange="handleFile(this)">
       </div>
       <div id="preview-container"></div>
     </div>
-    <button class="submit-btn" id="submit-btn" onclick="saveMemory()">Save Memory</button>
+    <button class="submit-btn" id="submit-btn" onclick="saveMemory()">
+      ${isEdit ? 'Save changes' : 'Save Memory'}
+    </button>
+    ${isEdit ? `
+      <button type="button" class="link-btn-danger danger-row" onclick="deleteMemory()">
+        Delete this memory
+      </button>
+    ` : ''}
   `;
 }
 
@@ -734,8 +800,27 @@ function selectCat(btn) {
 let placeFormLayer = 'landmarks';
 
 function showPlaceForm() {
-  openSidebar('⚙ Add a Place');
+  const isEdit = !!editingPlace;
+  openSidebar(isEdit ? '✏️ Edit Place' : '⚙ Add a Place');
   const body = document.getElementById('sidebar-body');
+
+  // Pre-fill from editingPlace (or sensible blanks otherwise)
+  const p = editingPlace || {};
+  const detailEntries = (() => {
+    if (!p.details || typeof p.details !== 'object') return [['',''],['',''],['','']];
+    const rows = Object.entries(p.details);
+    while (rows.length < 3) rows.push(['','']);
+    return rows.slice(0, Math.max(3, rows.length));
+  })();
+  const linkRows = (() => {
+    const rows = (Array.isArray(p.links) ? p.links : []).slice(0, 3);
+    while (rows.length < 3) rows.push({label:'', url:''});
+    return rows;
+  })();
+  const visible = (p.visible == null) ? true : p.visible;
+  const priority = p.label_priority || 0;
+  const existingImageUrl = isEdit ? getImageUrl(existingImagePath) : null;
+
   body.innerHTML = `
     ${locationPickerHTML()}
     <div class="form-group">
@@ -751,29 +836,33 @@ function showPlaceForm() {
     </div>
     <div class="form-group">
       <label>Kind</label>
-      <select id="f-kind">${kindOptionsHTML(placeFormLayer)}</select>
+      <select id="f-kind">${kindOptionsHTML(placeFormLayer, p.kind)}</select>
     </div>
     <div class="form-group">
       <label>Name</label>
-      <input type="text" id="f-name" placeholder="e.g. Franklin Patterson Hall">
+      <input type="text" id="f-name" placeholder="e.g. Franklin Patterson Hall"
+             value="${escapeAttr(p.name || '')}">
     </div>
     <div class="form-group">
       <label>Icon (emoji, optional)</label>
-      <input type="text" id="f-icon" placeholder="defaults to the kind's icon" maxlength="4">
+      <input type="text" id="f-icon" placeholder="defaults to the kind's icon" maxlength="4"
+             value="${escapeAttr(p.icon || '')}">
     </div>
     <div class="form-group">
       <label>Description</label>
-      <textarea id="f-desc" placeholder="Describe this place…"></textarea>
+      <textarea id="f-desc" placeholder="Describe this place…">${escapeAttr(p.description || '')}</textarea>
     </div>
     <div class="form-group">
       <label>Zoom visibility (optional)</label>
       <div style="display:flex;gap:12px;">
         <div style="flex:1;">
-          <input type="number" id="f-min-zoom" min="0" max="22" placeholder="Min (e.g. 17)">
+          <input type="number" id="f-min-zoom" min="0" max="22" placeholder="Min (e.g. 17)"
+                 value="${p.min_zoom ?? ''}">
           <div class="hint">Hidden below this zoom</div>
         </div>
         <div style="flex:1;">
-          <input type="number" id="f-max-zoom" min="0" max="22" placeholder="Max (e.g. 16)">
+          <input type="number" id="f-max-zoom" min="0" max="22" placeholder="Max (e.g. 16)"
+                 value="${p.max_zoom ?? ''}">
           <div class="hint">Hidden above this zoom</div>
         </div>
       </div>
@@ -784,47 +873,84 @@ function showPlaceForm() {
     <div class="form-group">
       <label>Label priority</label>
       <select id="f-label-priority">
-        <option value="0" selected>Normal</option>
-        <option value="-5">Low (yields to others)</option>
-        <option value="5">High (wins collisions)</option>
-        <option value="10">Very high</option>
+        <option value="0"  ${priority === 0  ? 'selected' : ''}>Normal</option>
+        <option value="-5" ${priority === -5 ? 'selected' : ''}>Low (yields to others)</option>
+        <option value="5"  ${priority === 5  ? 'selected' : ''}>High (wins collisions)</option>
+        <option value="10" ${priority === 10 ? 'selected' : ''}>Very high</option>
       </select>
       <div class="hint">Tiebreaker when two labels overlap.</div>
     </div>
     <div class="form-group">
+      <label class="inline-check">
+        <input type="checkbox" id="f-visible" ${visible ? 'checked' : ''}>
+        <span>Visible on map</span>
+      </label>
+      <div class="hint">Uncheck to take this place down without deleting it.</div>
+    </div>
+    <div class="form-group">
       <label>Extra details (optional, JSON-style key/value)</label>
       <div id="details-rows">
-        <div class="link-row details-row">
-          <input type="text" class="details-key" placeholder="e.g. honoree">
-          <input type="text" class="details-val" placeholder="e.g. Sander Thoenes">
-        </div>
-        <div class="link-row details-row">
-          <input type="text" class="details-key" placeholder="key">
-          <input type="text" class="details-val" placeholder="value">
-        </div>
-        <div class="link-row details-row">
-          <input type="text" class="details-key" placeholder="key">
-          <input type="text" class="details-val" placeholder="value">
-        </div>
+        ${detailEntries.map(([k, v]) => `
+          <div class="link-row details-row">
+            <input type="text" class="details-key" placeholder="e.g. honoree" value="${escapeAttr(k)}">
+            <input type="text" class="details-val" placeholder="e.g. Sander Thoenes" value="${escapeAttr(v)}">
+          </div>
+        `).join('')}
       </div>
     </div>
-    ${linkFieldsHTML()}
+    <div class="form-group">
+      <label>Links (optional — up to 3)</label>
+      <div class="link-input-group">
+        ${linkRows.map((l, i) => `
+          <div class="link-row">
+            <input type="text" id="f-link-label-${i+1}" placeholder="Label" value="${escapeAttr(l.label || '')}">
+            <input type="url"  id="f-link-url-${i+1}"   placeholder="https://..." value="${escapeAttr(l.url || '')}">
+          </div>
+        `).join('')}
+      </div>
+    </div>
     <div class="form-group">
       <label>Photo (optional)</label>
+      ${existingImageUrl ? `
+        <div class="existing-photo">
+          <img src="${existingImageUrl}" alt="Current photo">
+          <button type="button" class="link-btn-danger" onclick="removeExistingPhoto()">Remove photo</button>
+        </div>
+      ` : ''}
       <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()">
-        <p>📷 <strong>Click to upload</strong></p>
+        <p>📷 <strong>${existingImageUrl ? 'Replace' : 'Click to upload'}</strong></p>
         <input type="file" id="file-input" accept="image/*" onchange="handleFile(this)">
       </div>
       <div id="preview-container"></div>
     </div>
-    <button class="submit-btn admin-submit" id="submit-btn" onclick="savePlace()">Save Place</button>
+    <button class="submit-btn admin-submit" id="submit-btn" onclick="savePlace()">
+      ${isEdit ? 'Save changes' : 'Save Place'}
+    </button>
+    ${isEdit ? `
+      <button type="button" class="link-btn-danger danger-row" onclick="deletePlace()">
+        Delete this place
+      </button>
+    ` : ''}
   `;
 }
 
-function kindOptionsHTML(layer) {
+// Used by the form's "Remove photo" button — clears the kept image_path.
+function removeExistingPhoto() {
+  existingImagePath = null;
+  uploadedFile = null;
+  // Strip the existing-photo block + reset the file-drop label
+  const ep = document.querySelector('.existing-photo');
+  if (ep) ep.remove();
+  const drop = document.getElementById('file-drop');
+  if (drop) drop.querySelector('p').innerHTML = '📷 <strong>Click to upload</strong>';
+  document.getElementById('preview-container').innerHTML = '';
+}
+
+function kindOptionsHTML(layer, selected) {
   return kindsForLayer(layer).map(k => {
     const m = KIND_META[k];
-    return `<option value="${k}">${m.icon} ${m.label}</option>`;
+    const sel = (k === selected) ? ' selected' : '';
+    return `<option value="${k}"${sel}>${m.icon} ${m.label}</option>`;
   }).join('');
 }
 
@@ -1106,6 +1232,7 @@ async function uploadImage(file) {
 // ═══════════════════════════════════════════════════════════
 
 async function saveMemory() {
+  const isEdit = !!editingMemory;
   const title = document.getElementById('f-title').value.trim();
   const desc = document.getElementById('f-desc').value.trim();
   const dateText = document.getElementById('f-date').value.trim();
@@ -1119,29 +1246,39 @@ async function saveMemory() {
   btn.innerHTML = '<span class="loading-spinner"></span>Saving...';
 
   try {
-    let imagePath = null;
+    let imagePath = existingImagePath;
     if (uploadedFile) imagePath = await uploadImage(uploadedFile);
 
     const record = {
       lat: clickLat, lng: clickLng,
       title, description: desc,
-      author_name: currentProfile?.display_name || 'Anonymous',
+      author_name: currentProfile?.display_name || editingMemory?.author_name || 'Anonymous',
       category: selectedCat || 'personal',
       date_text: dateText || null,
       image_path: imagePath,
       links: gatherLinks(),
     };
-    if (currentProfile) record.user_id = currentProfile.id;
+    if (!isEdit && currentProfile) record.user_id = currentProfile.id;
 
     if (IS_CONFIGURED) {
-      const { error } = await db.from('memories').insert([record]);
-      if (error) throw error;
+      if (isEdit) {
+        const { error } = await db.from('memories').update(record).eq('id', editingMemory.id);
+        if (error) throw error;
+      } else {
+        const { error } = await db.from('memories').insert([record]);
+        if (error) throw error;
+      }
     } else {
-      record.id = 'local-' + Date.now();
-      allMemories.push(record);
+      if (isEdit) {
+        const idx = allMemories.findIndex(x => x.id === editingMemory.id);
+        if (idx >= 0) allMemories[idx] = { ...allMemories[idx], ...record };
+      } else {
+        record.id = 'local-' + Date.now();
+        allMemories.push(record);
+      }
     }
 
-    showToast('Memory saved!');
+    showToast(isEdit ? 'Memory updated' : 'Memory saved!');
     closeSidebar();
     exitAddMode();
     await loadAll();
@@ -1149,11 +1286,57 @@ async function saveMemory() {
     console.error('Save failed:', err);
     showToast('Failed to save — ' + err.message, true);
     btn.disabled = false;
-    btn.textContent = 'Save Memory';
+    btn.textContent = isEdit ? 'Save changes' : 'Save Memory';
+  }
+}
+
+function startEditMemory(memory) {
+  if (!currentProfile) {
+    showToast('Sign in to edit', true);
+    return;
+  }
+  if (memory.user_id !== currentProfile.id && currentProfile.role !== 'admin') {
+    showToast('You can only edit your own memories', true);
+    return;
+  }
+  editingMemory = memory;
+  selectedCat = memory.category || 'personal';
+  clickLat = memory.lat;
+  clickLng = memory.lng;
+  uploadedFile = null;
+  existingImagePath = memory.image_path || null;
+  addMode = 'memory';
+  showMemoryForm();
+}
+function startEditMemoryById(id) {
+  const m = allMemories.find(x => x.id === id);
+  if (m) startEditMemory(m);
+}
+
+async function deleteMemory() {
+  if (!editingMemory) return;
+  const ok = window.confirm(`Delete "${editingMemory.title}"? This can't be undone.`);
+  if (!ok) return;
+
+  try {
+    if (IS_CONFIGURED) {
+      const { error } = await db.from('memories').delete().eq('id', editingMemory.id);
+      if (error) throw error;
+    } else {
+      allMemories = allMemories.filter(x => x.id !== editingMemory.id);
+    }
+    showToast('Deleted');
+    closeSidebar();
+    exitAddMode();
+    await loadAll();
+  } catch (err) {
+    console.error('Delete failed:', err);
+    showToast('Failed to delete — ' + err.message, true);
   }
 }
 
 async function savePlace() {
+  const isEdit = !!editingPlace;
   const name = document.getElementById('f-name').value.trim();
   const desc = document.getElementById('f-desc').value.trim();
   const kind = document.getElementById('f-kind').value;
@@ -1162,6 +1345,7 @@ async function savePlace() {
   const minZoomVal = document.getElementById('f-min-zoom').value;
   const maxZoomVal = document.getElementById('f-max-zoom').value;
   const priorityVal = document.getElementById('f-label-priority').value;
+  const visible = document.getElementById('f-visible').checked;
 
   if (!name) { showToast('Please add a name', true); return; }
   if (!clickLat || !clickLng) { showToast('Please set a location — click the map or use GPS', true); return; }
@@ -1171,7 +1355,9 @@ async function savePlace() {
   btn.innerHTML = '<span class="loading-spinner"></span>Saving...';
 
   try {
-    let imagePath = null;
+    // Image: new upload wins; otherwise keep existingImagePath (which is
+    // null after the user clicked Remove photo).
+    let imagePath = existingImagePath;
     if (uploadedFile) imagePath = await uploadImage(uploadedFile);
 
     const record = {
@@ -1185,18 +1371,29 @@ async function savePlace() {
       min_zoom: minZoomVal === '' ? null : parseInt(minZoomVal, 10),
       max_zoom: maxZoomVal === '' ? null : parseInt(maxZoomVal, 10),
       label_priority: parseInt(priorityVal, 10) || 0,
+      visible,
     };
-    if (currentProfile) record.created_by = currentProfile.id;
+    if (!isEdit && currentProfile) record.created_by = currentProfile.id;
 
     if (IS_CONFIGURED) {
-      const { error } = await db.from('places').insert([record]);
-      if (error) throw error;
-      showToast('Place saved!');
+      if (isEdit) {
+        const { error } = await db.from('places').update(record).eq('id', editingPlace.id);
+        if (error) throw error;
+        showToast('Place updated');
+      } else {
+        const { error } = await db.from('places').insert([record]);
+        if (error) throw error;
+        showToast('Place saved!');
+      }
     } else {
-      record.id = 'local-' + Date.now();
-      record.visible = true;
-      allPlaces.push(record);
-      showToast('Place saved (demo mode)');
+      if (isEdit) {
+        const idx = allPlaces.findIndex(x => x.id === editingPlace.id);
+        if (idx >= 0) allPlaces[idx] = { ...allPlaces[idx], ...record };
+      } else {
+        record.id = 'local-' + Date.now();
+        allPlaces.push(record);
+      }
+      showToast(isEdit ? 'Place updated (demo mode)' : 'Place saved (demo mode)');
     }
 
     closeSidebar();
@@ -1206,7 +1403,45 @@ async function savePlace() {
     console.error('Save failed:', err);
     showToast('Failed to save — ' + err.message, true);
     btn.disabled = false;
-    btn.textContent = 'Save Place';
+    btn.textContent = isEdit ? 'Save changes' : 'Save Place';
+  }
+}
+
+function startEditPlace(place) {
+  if (!currentProfile || currentProfile.role !== 'admin') {
+    showToast('Admins only', true);
+    return;
+  }
+  editingPlace = place;
+  placeFormLayer = place.layer;
+  clickLat = place.lat;
+  clickLng = place.lng;
+  uploadedFile = null;
+  existingImagePath = place.image_path || null;
+  addMode = 'place'; // reuse the click-to-update-location wiring
+  showPlaceForm();
+}
+
+async function deletePlace() {
+  if (!editingPlace) return;
+  if (!currentProfile || currentProfile.role !== 'admin') return;
+  const ok = window.confirm(`Delete "${editingPlace.name}"? This can't be undone.`);
+  if (!ok) return;
+
+  try {
+    if (IS_CONFIGURED) {
+      const { error } = await db.from('places').delete().eq('id', editingPlace.id);
+      if (error) throw error;
+    } else {
+      allPlaces = allPlaces.filter(x => x.id !== editingPlace.id);
+    }
+    showToast('Deleted');
+    closeSidebar();
+    exitAddMode();
+    await loadAll();
+  } catch (err) {
+    console.error('Delete failed:', err);
+    showToast('Failed to delete — ' + err.message, true);
   }
 }
 
