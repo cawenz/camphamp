@@ -55,19 +55,49 @@ body {
 .header-btn:hover { background: rgba(255,255,255,0.2); }
 .header-btn.active { background: var(--teal); border-color: var(--teal); }
 .header-btn.admin-btn.active { background: var(--gold); border-color: var(--gold); color: #000; }
-.header-user { display: flex; align-items: center; gap: 8px; }
-.header-user-name {
-  color: rgba(255,255,255,0.85);
-  font-size: 13px;
-  font-weight: 500;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Account icon dropdown (replaces text sign-in / sign-out buttons) */
+.header-account {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
-.header-user-name .user-badge {
+.account-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px !important;
+}
+.account-icon svg { display: block; }
+.account-icon.signed-in {
+  background: rgba(0,155,158,0.85);
+  border-color: rgba(0,155,158,0.85);
+}
+.account-icon.signed-in:hover { background: rgba(0,155,158,1); }
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 1100;
+  min-width: 220px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+  padding: 6px 0;
+}
+.account-menu-name {
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  margin-bottom: 4px;
+}
+.account-menu-name .user-badge {
   display: inline-block;
-  background: rgba(255,255,255,0.15);
+  background: var(--teal);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -77,6 +107,19 @@ body {
   margin-left: 6px;
   vertical-align: middle;
 }
+.account-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.account-menu-item:hover { background: rgba(0,0,0,0.04); }
 
 /* ── MAP ── */
 #map { position: fixed; top: 56px; left: 0; right: 0; bottom: 0; z-index: 1; }

@@ -114,57 +114,30 @@ map = L.map('map', {
 });
 L.control.zoom({ position: 'topright' }).addTo(map);
 
-// Helper: build an OpenFreeMap (vector) layer whose native text labels can
-// be flipped on/off at runtime via the user's preference.
-// We re-apply the chosen visibility whenever the underlying GL style is loaded.
+// Helper: build an OpenFreeMap (vector) layer with its native text labels
+// permanently hidden — CampHamp's custom labels carry the map.
 const OFM_ATTRIB = '&copy; OpenFreeMap &copy; OpenMapTiles &copy; OpenStreetMap';
 
-// Global preference, persisted to localStorage. Default: hidden (CampHamp's
-// custom labels carry the map; users can flip on for context).
-let nativeLabelsOn = (() => {
-  try { return localStorage.getItem('nlsm-native-labels') === 'on'; }
-  catch { return false; }
-})();
-
-function applyNativeLabelsTo(gl) {
+function hideNativeLabels(gl) {
   const layers = (gl.getStyle() && gl.getStyle().layers) || [];
-  const visibility = nativeLabelsOn ? 'visible' : 'none';
   layers.forEach(l => {
     if (l.type !== 'symbol') return;
     const hasText = l.layout && l.layout['text-field'] != null;
     if (!hasText) return;
-    gl.setLayoutProperty(l.id, 'visibility', visibility);
+    gl.setLayoutProperty(l.id, 'visibility', 'none');
   });
 }
 
-// Track every OFM-backed Leaflet layer so the toggle can update them all.
-const ofmLeafletLayers = [];
 function makeOFMLayer(styleUrl) {
   const layer = L.maplibreGL({ style: styleUrl, attribution: OFM_ATTRIB });
-  ofmLeafletLayers.push(layer);
   layer.on('add', () => {
     const gl = layer.getMaplibreMap ? layer.getMaplibreMap() : layer._glMap;
     if (!gl) return;
-    if (gl.isStyleLoaded()) applyNativeLabelsTo(gl);
-    gl.on('load', () => applyNativeLabelsTo(gl));
-    gl.on('styledata', () => applyNativeLabelsTo(gl));
+    if (gl.isStyleLoaded()) hideNativeLabels(gl);
+    gl.on('load', () => hideNativeLabels(gl));
+    gl.on('styledata', () => hideNativeLabels(gl));
   });
   return layer;
-}
-
-function toggleNativeLabels() {
-  nativeLabelsOn = !nativeLabelsOn;
-  try { localStorage.setItem('nlsm-native-labels', nativeLabelsOn ? 'on' : 'off'); } catch {}
-  // Update every OFM layer (the active one, plus any cached preconnected layers)
-  ofmLeafletLayers.forEach(layer => {
-    const gl = layer.getMaplibreMap ? layer.getMaplibreMap() : layer._glMap;
-    if (gl) applyNativeLabelsTo(gl);
-  });
-  refreshNativeLabelsButton();
-}
-function refreshNativeLabelsButton() {
-  const btn = document.getElementById('btn-native-labels');
-  if (btn) btn.classList.toggle('active', nativeLabelsOn);
 }
 
 const tileLayers = [
@@ -184,8 +157,6 @@ tileLayers[0].layer.addTo(map);
 function syncTileBodyClass() {
   const isSat = tileLayers[currentTileIdx].name === 'Satellite';
   document.body.classList.toggle('satellite-active', isSat);
-  const labelsBtn = document.getElementById('btn-native-labels');
-  if (labelsBtn) labelsBtn.disabled = isSat; // no native labels on raster satellite
 }
 
 function cycleTileLayer() {
@@ -1830,26 +1801,36 @@ function escapeAttr(s) {
 }
 
 async function refreshAuthUI() {
-  const signinEl = document.getElementById('btn-signin');
-  const userEl = document.getElementById('header-user');
-  const userNameEl = document.getElementById('header-user-name');
   const adminPortalEl = document.getElementById('btn-admin-portal');
   const placeBtn = document.getElementById('btn-add-place');
   const rapidBtn = document.getElementById('btn-add-rapid');
+  const accountBtn = document.getElementById('btn-account');
+  const menu = document.getElementById('account-menu');
+  const menuName = document.getElementById('account-menu-name');
+
+  closeAccountMenu(); // never leave a stale menu open across state changes
 
   if (!IS_CONFIGURED) {
-    [signinEl, userEl, adminPortalEl, placeBtn, rapidBtn].forEach(el => el && (el.hidden = true));
+    [adminPortalEl, placeBtn, rapidBtn, accountBtn].forEach(el => el && (el.hidden = true));
     return;
   }
+  if (accountBtn) accountBtn.hidden = false;
 
   currentProfile = await window.CampHampAuth.getProfile(true);
 
+  // Common reset of admin-only controls
+  const setAdminVisibility = (visible) => {
+    if (adminPortalEl) adminPortalEl.hidden = !visible;
+    if (placeBtn) placeBtn.hidden = !visible;
+    if (rapidBtn) rapidBtn.hidden = !visible;
+  };
+
   if (!currentProfile) {
-    signinEl.hidden = false;
-    userEl.hidden = true;
-    adminPortalEl.hidden = true;
-    placeBtn.hidden = true;
-    rapidBtn.hidden = true;
+    if (accountBtn) {
+      accountBtn.title = 'Sign in';
+      accountBtn.classList.remove('signed-in');
+    }
+    setAdminVisibility(false);
     return;
   }
 
@@ -1857,32 +1838,67 @@ async function refreshAuthUI() {
     showToast('Your account has been disabled', true);
     await window.CampHampAuth.signOut();
     currentProfile = null;
-    signinEl.hidden = false;
-    userEl.hidden = true;
-    adminPortalEl.hidden = true;
-    placeBtn.hidden = true;
-    rapidBtn.hidden = true;
+    if (accountBtn) {
+      accountBtn.title = 'Sign in';
+      accountBtn.classList.remove('signed-in');
+    }
+    setAdminVisibility(false);
     return;
   }
 
-  signinEl.hidden = true;
-  userEl.hidden = false;
-  const badge = window.CampHampAuth.formatBadge(currentProfile);
-  userNameEl.innerHTML = escapeAttr(currentProfile.display_name)
-    + (badge ? ` <span class="user-badge">${escapeAttr(badge)}</span>` : '');
+  // Signed in: tag the icon, populate the menu's user-info row.
+  if (accountBtn) {
+    accountBtn.title = currentProfile.display_name;
+    accountBtn.classList.add('signed-in');
+  }
+  if (menuName) {
+    const badge = window.CampHampAuth.formatBadge(currentProfile);
+    menuName.innerHTML = escapeAttr(currentProfile.display_name)
+      + (badge ? ` <span class="user-badge">${escapeAttr(badge)}</span>` : '');
+  }
 
   const isAdmin = currentProfile.role === 'admin';
-  adminPortalEl.hidden = !isAdmin;
-  placeBtn.hidden = !isAdmin;
-  rapidBtn.hidden = !isAdmin;
+  setAdminVisibility(isAdmin);
 }
 
-document.getElementById('btn-signout')?.addEventListener('click', async () => {
+// Click on the account icon: route based on signed-in state.
+function onAccountIconClick() {
+  if (!IS_CONFIGURED) return;
+  if (!currentProfile) {
+    window.location.href = 'login.html';
+    return;
+  }
+  toggleAccountMenu();
+}
+
+function toggleAccountMenu() {
+  const menu = document.getElementById('account-menu');
+  if (!menu) return;
+  const isOpen = !menu.hidden;
+  if (isOpen) closeAccountMenu();
+  else openAccountMenu();
+}
+function openAccountMenu() {
+  const menu = document.getElementById('account-menu');
+  if (menu) menu.hidden = false;
+  document.addEventListener('click', closeAccountMenuOnOutsideClick);
+}
+function closeAccountMenu() {
+  const menu = document.getElementById('account-menu');
+  if (menu) menu.hidden = true;
+  document.removeEventListener('click', closeAccountMenuOnOutsideClick);
+}
+function closeAccountMenuOnOutsideClick(e) {
+  if (e.target.closest('.header-account')) return;
+  closeAccountMenu();
+}
+
+async function onSignOutClick() {
   await window.CampHampAuth.signOut();
   currentProfile = null;
   await refreshAuthUI();
   showToast('Signed out');
-});
+}
 
 if (IS_CONFIGURED) {
   db.auth.onAuthStateChange(() => { refreshAuthUI(); });
@@ -1937,7 +1953,6 @@ function toggleLegend() {
 (async function boot() {
   buildLegend();
   syncTileBodyClass();
-  refreshNativeLabelsButton();
   updateZoomIndicator();
   await refreshAuthUI();
   await loadAll();
