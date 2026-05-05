@@ -313,6 +313,10 @@ function renderAll() {
     if (!placeLayers[layer]) return;
     if (!layerVisible[layer]) return;
 
+    // While editing a place, hide its existing marker — the draggable pin
+    // takes its place visually so the user can drag to a new location.
+    if (editingPlace && place.id === editingPlace.id) return;
+
     // Zoom-range filter: per-place value wins; otherwise fall back to layer default.
     const defaults = LAYER_DEFAULT_ZOOM[layer] || { min: null, max: null };
     const minZ = place.min_zoom != null ? place.min_zoom : defaults.min;
@@ -606,15 +610,8 @@ function useMyLocation() {
 
     clickLat = e.latlng.lat;
     clickLng = e.latlng.lng;
-
-    if (newMarker) map.removeLayer(newMarker);
-    const el = document.createElement('div');
-    el.className = 'marker-new';
-    const icon = L.divIcon({ html: el.outerHTML, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
-    newMarker = L.marker([clickLat, clickLng], { icon }).addTo(map);
-
-    const coordEl = document.getElementById('coord-display');
-    if (coordEl) coordEl.textContent = `📍 ${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`;
+    placeOrMoveNewMarker(clickLat, clickLng);
+    syncCoordDisplay();
   });
 
   map.once('locationerror', function() {
@@ -691,6 +688,32 @@ function exitAddMode() {
   addMode = null;
 }
 
+// Drop or relocate the draggable "new location" pin. Used both when the
+// user clicks the map and when entering edit mode at the place's existing
+// position. Returns the marker.
+function placeOrMoveNewMarker(lat, lng) {
+  if (newMarker) map.removeLayer(newMarker);
+  const el = document.createElement('div');
+  el.className = 'marker-new';
+  const icon = L.divIcon({ html: el.outerHTML, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+  newMarker = L.marker([lat, lng], { icon, draggable: true, autoPan: true });
+  newMarker.addTo(map);
+  newMarker.on('dragend', () => {
+    const ll = newMarker.getLatLng();
+    clickLat = ll.lat;
+    clickLng = ll.lng;
+    syncCoordDisplay();
+  });
+  return newMarker;
+}
+
+function syncCoordDisplay() {
+  const coordEl = document.getElementById('coord-display');
+  if (coordEl && clickLat != null && clickLng != null) {
+    coordEl.textContent = `📍 ${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`;
+  }
+}
+
 map.on('click', function(e) {
   if (!addMode) return;
 
@@ -704,16 +727,10 @@ map.on('click', function(e) {
 
   if (geoLayer) geoLayer.clearLayers();
 
-  if (newMarker) map.removeLayer(newMarker);
-  const el = document.createElement('div');
-  el.className = 'marker-new';
-  const icon = L.divIcon({ html: el.outerHTML, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
-  newMarker = L.marker([clickLat, clickLng], { icon }).addTo(map);
+  placeOrMoveNewMarker(clickLat, clickLng);
 
   document.getElementById('click-prompt').classList.remove('visible');
-
-  const coordEl = document.getElementById('coord-display');
-  if (coordEl) coordEl.textContent = `📍 ${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`;
+  syncCoordDisplay();
 
   const gpsMsg = document.getElementById('gps-msg');
   if (gpsMsg) { gpsMsg.textContent = ''; gpsMsg.className = 'gps-msg'; }
@@ -756,11 +773,16 @@ function gatherLinks() {
 }
 
 function locationPickerHTML() {
-  const coordText = (clickLat && clickLng)
+  const hasPoint = clickLat != null && clickLng != null;
+  const coordText = hasPoint
     ? `📍 ${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`
     : '📍 Click map or use GPS to set location';
+  const hint = hasPoint
+    ? '<div class="hint" style="margin-top:4px;text-align:center;">Drag the teal pin on the map to fine-tune.</div>'
+    : '';
   return `
     <div class="coord-display" id="coord-display">${coordText}</div>
+    ${hint}
     <div style="margin-top:8px; text-align:center;">
       <button type="button" class="gps-btn" id="gps-btn" onclick="useMyLocation()">📍 Use my location</button>
     </div>
@@ -1732,6 +1754,10 @@ function startEditPlace(place) {
     photoQueue.push({ path: place.image_path, caption: '' });
   }
   addMode = 'place'; // reuse the click-to-update-location wiring
+  // Hide the original marker (renderAll filters it out by id) and drop a
+  // draggable pin at the current location instead.
+  renderAll();
+  placeOrMoveNewMarker(clickLat, clickLng);
   showPlaceForm();
 }
 

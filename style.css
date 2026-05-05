@@ -980,7 +980,10 @@ body.lightbox-open { overflow: hidden; }
   background: var(--teal); border: 3px solid #fff;
   box-shadow: 0 0 0 4px rgba(0,155,158,0.3), 0 2px 8px rgba(0,0,0,0.3);
   animation: pulse-ring 1.5s infinite;
+  cursor: grab;
 }
+.leaflet-marker-draggable .marker-new:active,
+.leaflet-marker-dragging .marker-new { cursor: grabbing; }
 @keyframes pulse-ring {
   0% { box-shadow: 0 0 0 4px rgba(0,155,158,0.3), 0 2px 8px rgba(0,0,0,0.3); }
   50% { box-shadow: 0 0 0 10px rgba(0,155,158,0.1), 0 2px 8px rgba(0,0,0,0.3); }
