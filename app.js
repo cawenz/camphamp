@@ -252,11 +252,16 @@ function getImageUrl(imagePath) {
 // colored circle pin). Landmarks use the prominent pin style instead.
 const POI_STYLE_LAYERS = new Set(['wayfinding', 'trees']);
 
-// Returns the HTML for the icon glyph — emoji override on the place wins,
-// otherwise the SVG from icons.js for that kind, otherwise a fallback dot.
+// Returns the HTML for the icon glyph. Lookup order:
+//   1. place.icon as an icon name (e.g. "library") → render the SVG
+//   2. place.icon as an emoji character → render as emoji
+//   3. ICONS[place.kind] → kind default SVG
+//   4. fallback dot
 function iconGlyphHTML(place, kindMeta) {
-  if (place.icon && place.icon.trim()) {
-    return `<span class="glyph-emoji">${escapeAttr(place.icon.trim())}</span>`;
+  const raw = (place.icon || '').trim();
+  if (raw) {
+    if (window.ICONS && window.ICONS[raw]) return window.ICONS[raw];
+    return `<span class="glyph-emoji">${escapeAttr(raw)}</span>`;
   }
   const svg = window.ICONS && window.ICONS[place.kind];
   if (svg) return svg;
@@ -899,9 +904,9 @@ function showPlaceForm() {
              value="${escapeAttr(p.name || '')}">
     </div>
     <div class="form-group">
-      <label>Icon (emoji, optional)</label>
-      <input type="text" id="f-icon" placeholder="defaults to the kind's icon" maxlength="4"
-             value="${escapeAttr(p.icon || '')}">
+      <label>Icon (optional)</label>
+      ${iconPickerHTML(p.icon)}
+      <div class="hint">Leave on Default to use the kind's icon. Click an icon to override, or use a custom emoji below.</div>
     </div>
     <div class="form-group">
       <label>Description</label>
@@ -1000,6 +1005,76 @@ function removeExistingPhoto() {
   const drop = document.getElementById('file-drop');
   if (drop) drop.querySelector('p').innerHTML = '📷 <strong>Click to upload</strong>';
   document.getElementById('preview-container').innerHTML = '';
+}
+
+// ─── Icon picker ──────────────────────────────────────────
+// Renders a tile grid for the place form. The currently-selected icon
+// (matching `currentIcon`) gets the `selected` class. A "Default" tile
+// at the start clears the override; an emoji input lets curators type
+// a custom emoji which takes precedence over any tile selection.
+function iconPickerHTML(currentIcon) {
+  const cur = (currentIcon || '').trim();
+  const isKnownName = !!(cur && window.ICONS && window.ICONS[cur]);
+  const isEmoji = !!cur && !isKnownName;
+  const defaultSelected = !cur ? 'selected' : '';
+  const tiles = (window.PICKER_ICONS || []).map(({ key, label }) => {
+    const sel = (cur === key) ? 'selected' : '';
+    return `
+      <button type="button" class="icon-pick ${sel}" data-icon="${escapeAttr(key)}"
+              title="${escapeAttr(label)}" onclick="selectIcon(this)">
+        ${window.ICONS[key] || ''}
+      </button>
+    `;
+  }).join('');
+  return `
+    <div class="icon-picker" id="icon-picker">
+      <button type="button" class="icon-pick icon-pick-default ${defaultSelected}"
+              data-icon="" title="Default for this kind" onclick="selectIcon(this)">
+        <span>Default</span>
+      </button>
+      ${tiles}
+    </div>
+    <div class="icon-emoji-row">
+      <label>
+        <span>Or use an emoji:</span>
+        <input type="text" id="f-icon-emoji" maxlength="4"
+               placeholder="🌟"
+               value="${isEmoji ? escapeAttr(cur) : ''}"
+               oninput="onIconEmojiInput()">
+      </label>
+    </div>
+  `;
+}
+
+function selectIcon(btn) {
+  document.querySelectorAll('#icon-picker .icon-pick').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  // A tile click clears any custom emoji typed in the box.
+  const emojiInput = document.getElementById('f-icon-emoji');
+  if (emojiInput) emojiInput.value = '';
+}
+
+function onIconEmojiInput() {
+  // Typing in the emoji box overrides the picker — un-select tiles.
+  const v = document.getElementById('f-icon-emoji').value.trim();
+  if (v) {
+    document.querySelectorAll('#icon-picker .icon-pick.selected').forEach(b => b.classList.remove('selected'));
+  } else {
+    // Empty emoji input → revert to "Default" selection.
+    const defaultTile = document.querySelector('#icon-picker .icon-pick-default');
+    if (defaultTile && !document.querySelector('#icon-picker .icon-pick.selected')) {
+      defaultTile.classList.add('selected');
+    }
+  }
+}
+
+// Read the form's chosen icon value: emoji input wins, then a selected
+// tile, otherwise empty (= use kind default).
+function readIconValue() {
+  const emoji = document.getElementById('f-icon-emoji')?.value.trim() || '';
+  if (emoji) return emoji;
+  const sel = document.querySelector('#icon-picker .icon-pick.selected');
+  return (sel && sel.dataset.icon) || '';
 }
 
 function kindOptionsHTML(layer, selected) {
@@ -1396,7 +1471,7 @@ async function savePlace() {
   const name = document.getElementById('f-name').value.trim();
   const desc = document.getElementById('f-desc').value.trim();
   const kind = document.getElementById('f-kind').value;
-  const icon = document.getElementById('f-icon').value.trim();
+  const icon = readIconValue();
   const layer = placeFormLayer;
   const minZoomVal = document.getElementById('f-min-zoom').value;
   const maxZoomVal = document.getElementById('f-max-zoom').value;

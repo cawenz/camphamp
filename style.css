@@ -405,6 +405,76 @@ body {
   cursor: pointer;
 }
 
+/* ── Icon picker (place form) ── */
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+  padding: 10px;
+  background: rgba(0,0,0,0.025);
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+.icon-pick {
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.10);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  font-family: inherit;
+  font-size: 11px;
+  color: #2a2a32;
+  transition: all 0.15s;
+}
+.icon-pick:hover { border-color: var(--teal); transform: scale(1.04); }
+.icon-pick.selected {
+  border-color: var(--teal);
+  background: rgba(0,155,158,0.08);
+  box-shadow: 0 0 0 2px rgba(0,155,158,0.18);
+}
+.icon-pick svg {
+  width: 22px; height: 22px;
+  display: block;
+  stroke: #2a2a32;
+}
+.icon-pick.selected svg { stroke: var(--teal); }
+.icon-pick-default {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  color: rgba(0,0,0,0.55);
+}
+
+.icon-emoji-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: rgba(0,0,0,0.55);
+}
+.icon-emoji-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: rgba(0,0,0,0.55);
+  font-size: 12px;
+  margin: 0;
+}
+.icon-emoji-row input {
+  width: 60px !important;
+  text-align: center;
+  font-size: 18px !important;
+  padding: 6px !important;
+}
+
 /* ── LOADING ── */
 .loading-spinner {
   display: inline-block; width: 16px; height: 16px;
