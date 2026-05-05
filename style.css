@@ -643,6 +643,9 @@ body {
   justify-content: center;
   padding: 32px;
 }
+/* The `hidden` attribute would normally hide the element, but our
+   #lightbox display:flex rule above wins on specificity. Restore. */
+#lightbox[hidden] { display: none; }
 .lightbox-stage {
   position: relative;
   flex: 1;
