@@ -270,7 +270,10 @@ function createPlaceMarker(place) {
   if (POI_STYLE_LAYERS.has(place.layer)) {
     // POI-style: small icon, name + optional subtitle below, no colored circle.
     // Subtitle (kind) only appears at high zoom — controlled via body class.
-    const subtitle = KIND_META[place.kind]?.label || '';
+    // Wayfinding kinds (building/housing) skip the subtitle: the icon + shape
+    // on the map already make "BUILDING" redundant.
+    const showSubtitle = place.layer !== 'wayfinding';
+    const subtitle = showSubtitle ? (KIND_META[place.kind]?.label || '') : '';
     const pri = place.label_priority || 0;
     const html = `
       <div class="marker-poi ${meta.cls}">
