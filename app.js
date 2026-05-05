@@ -291,8 +291,8 @@ function createPlaceMarker(place) {
     `;
     const leafIcon = L.divIcon({
       html, className: '',
-      iconSize: [110, 60],    // wider/taller to fit subtitle without clipping
-      iconAnchor: [55, 10],   // anchor at the icon (top); text hangs below
+      iconSize: [120, 80],    // wider/taller to fit 2-line wrapped names + subtitle
+      iconAnchor: [60, 10],   // anchor at the icon (top); text hangs below
     });
     const marker = L.marker([place.lat, place.lng], { icon: leafIcon });
     marker.on('click', () => showPlaceDetail(place));
