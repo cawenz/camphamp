@@ -244,6 +244,54 @@ const ICONS = {
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
     </svg>
   `,
+
+  // ────────────────────────────────────────────────
+  //  Institution-specific icons (Five-College area)
+  // ────────────────────────────────────────────────
+
+  // Eric Carle Museum — caterpillar (4 segments + antennae + eye)
+  caterpillar: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="4.5" cy="15" r="2.6"/>
+      <circle cx="9.5" cy="15" r="2.6"/>
+      <circle cx="14.5" cy="15" r="2.6"/>
+      <circle cx="19.5" cy="15" r="2.6"/>
+      <path d="M18.5 12.6 L17.7 9.6"/>
+      <path d="M20.5 12.6 L21.3 9.6"/>
+      <circle cx="20.2" cy="14.5" r="0.55" fill="currentColor"/>
+    </svg>
+  `,
+
+  // Hitchcock Center — salamander (long body + 4 legs + curled tail)
+  salamander: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="10" cy="13" rx="8" ry="2.6"/>
+      <path d="M18 13 c 3.5 0 4 -3.5 1.5 -3.5 c -1.2 0 -1.6 1.4 -0.4 1.7"/>
+      <path d="M5 15.4 v2.6"/>
+      <path d="M9 15.4 v2.6"/>
+      <path d="M13 15.4 v2.6"/>
+      <path d="M16 15.2 v2.6"/>
+      <circle cx="3.2" cy="12.4" r="0.5" fill="currentColor"/>
+    </svg>
+  `,
+
+  // Yiddish Book Center — goat (body + horns + beard + 4 legs)
+  goat: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 13 h12"/>
+      <path d="M3 17 h12"/>
+      <path d="M3 13 v4"/>
+      <path d="M15 12.5 l 4 -1.5 v 7 l-4-1.5 z"/>
+      <path d="M16 11 l-1.2 -3"/>
+      <path d="M18 10.6 l 0.8 -3"/>
+      <circle cx="17.5" cy="13.2" r="0.45" fill="currentColor"/>
+      <path d="M18 16.4 v 2.4"/>
+      <path d="M5 17 v3"/>
+      <path d="M8 17 v3"/>
+      <path d="M11 17 v3"/>
+      <path d="M14 17 v3"/>
+    </svg>
+  `,
 };
 
 // Ordered list shown in the place form's icon picker. Includes both the
@@ -274,6 +322,10 @@ const PICKER_ICONS = [
   { key: 'bus',              label: 'Bus' },
   { key: 'parking',          label: 'Parking' },
   { key: 'mail',             label: 'Mail' },
+  // Institution-specific
+  { key: 'caterpillar',      label: 'Caterpillar (Eric Carle)' },
+  { key: 'salamander',       label: 'Salamander (Hitchcock)' },
+  { key: 'goat',             label: 'Goat (Yiddish Book Center)' },
 ];
 
 window.ICONS = ICONS;
