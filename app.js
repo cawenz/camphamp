@@ -72,7 +72,13 @@ let rapidCount = 0;        // places saved during the current rapid session
 // rather than creating a new one. Cleared by exitAddMode().
 let editingPlace = null;
 let editingMemory = null;
-let existingImagePath = null; // current image path during edit; cleared if user clicks Remove photo
+let existingImagePath = null; // memory: current image path during edit; cleared if user clicks Remove photo
+
+// Photo queue for the place form's multi-photo widget. Each entry is one of:
+//   { path: 'uploads/...', caption: 'text' }       — existing photo on storage
+//   { file: <File>, caption: 'text', _preview: 'blob:...' }  — new upload, not yet on storage
+const PHOTO_CAP = 20;
+let photoQueue = [];
 
 // ── Demo fallback ──
 const demoMemories = [
@@ -537,16 +543,49 @@ function showMemoryDetail(mem) {
   `;
 }
 
+// Normalize a place's photos (image_paths array, falling back to legacy image_path)
+// into [{path, caption?}, …]. Returns [] when no photos.
+function placePhotos(place) {
+  const arr = Array.isArray(place.image_paths) ? place.image_paths : [];
+  if (arr.length > 0) {
+    return arr
+      .map(item => typeof item === 'string' ? { path: item } : item)
+      .filter(item => item && item.path);
+  }
+  if (place.image_path) return [{ path: place.image_path }];
+  return [];
+}
+
 function showPlaceDetail(place) {
   openSidebar(place.name);
   const body = document.getElementById('sidebar-body');
-  const imgUrl = getImageUrl(place.image_path);
   const meta = KIND_META[place.kind] || { label: place.kind, cls: 'building' };
   const isAdmin = currentProfile?.role === 'admin';
+  const photos = placePhotos(place);
+  const primaryUrl = photos[0] ? getImageUrl(photos[0].path) : null;
+
+  // Stash on a global so the lightbox helpers can read without serializing into onclick attrs.
+  window._currentDetailPhotos = photos;
+
+  let stripHTML = '';
+  if (photos.length > 1) {
+    stripHTML = `
+      <div class="photo-strip">
+        ${photos.map((p, i) => {
+          const url = getImageUrl(p.path);
+          return `<button class="photo-strip-thumb" onclick="openLightbox(${i})" title="${escapeAttr(p.caption || '')}">
+            <img src="${escapeAttr(url || '')}" alt="">
+          </button>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
   body.innerHTML = `
     <div class="official-detail">
       <span class="type-badge ${meta.cls}">${escapeAttr(meta.label)}</span>
-      ${imgUrl ? `<img class="memory-image" src="${imgUrl}" alt="${escapeAttr(place.name)}" onerror="this.style.display='none'">` : ''}
+      ${primaryUrl ? `<img class="memory-image" src="${escapeAttr(primaryUrl)}" alt="${escapeAttr(place.name)}" onclick="openLightbox(0)" style="cursor:zoom-in;" onerror="this.style.display='none'">` : ''}
+      ${stripHTML}
       ${place.description ? `<p class="description">${escapeAttr(place.description)}</p>` : ''}
       ${renderDetailFields(place.details)}
       ${renderLinks(place.links)}
@@ -675,6 +714,9 @@ function exitAddMode() {
   editingPlace = null;
   editingMemory = null;
   existingImagePath = null;
+  // Release any blob URLs we created for previewing newly-added photos
+  photoQueue.forEach(p => { if (p._preview) URL.revokeObjectURL(p._preview); });
+  photoQueue = [];
   addMode = null;
 }
 
@@ -879,7 +921,6 @@ function showPlaceForm() {
   })();
   const visible = (p.visible == null) ? true : p.visible;
   const priority = p.label_priority || 0;
-  const existingImageUrl = isEdit ? getImageUrl(existingImagePath) : null;
 
   body.innerHTML = `
     ${locationPickerHTML()}
@@ -971,18 +1012,9 @@ function showPlaceForm() {
       </div>
     </div>
     <div class="form-group">
-      <label>Photo (optional)</label>
-      ${existingImageUrl ? `
-        <div class="existing-photo">
-          <img src="${existingImageUrl}" alt="Current photo">
-          <button type="button" class="link-btn-danger" onclick="removeExistingPhoto()">Remove photo</button>
-        </div>
-      ` : ''}
-      <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()">
-        <p>📷 <strong>${existingImageUrl ? 'Replace' : 'Click to upload'}</strong></p>
-        <input type="file" id="file-input" accept="image/*" onchange="handleFile(this)">
-      </div>
-      <div id="preview-container"></div>
+      <label>Photos (optional, up to ${PHOTO_CAP})</label>
+      <div id="photo-widget-host">${photoWidgetHTML()}</div>
+      <div class="hint">First photo is the primary thumbnail. Captions show in the gallery view.</div>
     </div>
     <button class="submit-btn admin-submit" id="submit-btn" onclick="savePlace()">
       ${isEdit ? 'Save changes' : 'Save Place'}
@@ -1006,6 +1038,175 @@ function removeExistingPhoto() {
   if (drop) drop.querySelector('p').innerHTML = '📷 <strong>Click to upload</strong>';
   document.getElementById('preview-container').innerHTML = '';
 }
+
+// ─── Lightbox (gallery viewer for place photos) ──────────
+
+let lightboxIndex = 0;
+
+function openLightbox(idx) {
+  const photos = window._currentDetailPhotos || [];
+  if (photos.length === 0) return;
+  lightboxIndex = Math.max(0, Math.min(idx, photos.length - 1));
+  renderLightbox();
+  document.getElementById('lightbox').hidden = false;
+  document.body.classList.add('lightbox-open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').hidden = true;
+  document.body.classList.remove('lightbox-open');
+}
+
+function lightboxStep(delta) {
+  const photos = window._currentDetailPhotos || [];
+  if (photos.length === 0) return;
+  lightboxIndex = (lightboxIndex + delta + photos.length) % photos.length;
+  renderLightbox();
+}
+
+function renderLightbox() {
+  const photos = window._currentDetailPhotos || [];
+  const cur = photos[lightboxIndex];
+  if (!cur) return;
+  const url = getImageUrl(cur.path) || '';
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox-caption').textContent = cur.caption || '';
+  document.getElementById('lightbox-counter').textContent =
+    photos.length > 1 ? `${lightboxIndex + 1} / ${photos.length}` : '';
+}
+
+// Keyboard nav + click-outside close
+document.addEventListener('keydown', e => {
+  if (document.getElementById('lightbox')?.hidden) return;
+  if (e.key === 'Escape')      { e.preventDefault(); closeLightbox(); }
+  if (e.key === 'ArrowLeft')   { e.preventDefault(); lightboxStep(-1); }
+  if (e.key === 'ArrowRight')  { e.preventDefault(); lightboxStep(+1); }
+});
+document.addEventListener('click', e => {
+  const lb = document.getElementById('lightbox');
+  if (!lb || lb.hidden) return;
+  // Click on the dark backdrop (the lightbox itself, not its inner stage) closes.
+  if (e.target === lb) closeLightbox();
+});
+
+
+// ─── Photo widget (multi-photo gallery editor) ────────────
+
+function photoTilePreviewUrl(item) {
+  if (item._preview) return item._preview;
+  if (item.path) return getImageUrl(item.path) || '';
+  return '';
+}
+
+function photoWidgetHTML() {
+  const tiles = photoQueue.map((p, i) => {
+    const url = photoTilePreviewUrl(p);
+    return `
+      <div class="photo-tile" data-idx="${i}">
+        <div class="photo-thumb">
+          ${url ? `<img src="${escapeAttr(url)}" alt="">` : `<div class="photo-loading">…</div>`}
+          <button type="button" class="photo-del" title="Remove" onclick="removePhoto(${i})">×</button>
+          ${i === 0 ? '<span class="photo-primary-tag">Primary</span>' : ''}
+        </div>
+        <input type="text" class="photo-caption" placeholder="Caption (optional)"
+               value="${escapeAttr(p.caption || '')}"
+               oninput="setPhotoCaption(${i}, this.value)">
+        <div class="photo-reorder">
+          <button type="button" onclick="movePhoto(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+          <button type="button" onclick="movePhoto(${i}, +1)" ${i === photoQueue.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const canAddMore = photoQueue.length < PHOTO_CAP;
+  const addTile = canAddMore ? `
+    <label class="photo-tile photo-add">
+      <input type="file" accept="image/*" multiple
+             onchange="addPhotosFromInput(this)" hidden>
+      <span class="photo-add-icon">＋</span>
+      <span class="photo-add-text">Add photo${photoQueue.length === 0 ? '' : 's'}</span>
+    </label>
+  ` : `
+    <div class="photo-cap-msg">Up to ${PHOTO_CAP} photos.</div>
+  `;
+
+  return `
+    <div class="photo-widget">
+      ${tiles}
+      ${addTile}
+    </div>
+  `;
+}
+
+function rerenderPhotoWidget() {
+  const host = document.getElementById('photo-widget-host');
+  if (host) host.innerHTML = photoWidgetHTML();
+}
+
+async function addPhotosFromInput(input) {
+  const files = Array.from(input.files || []);
+  input.value = ''; // allow re-selecting the same file later
+  for (const file of files) {
+    if (photoQueue.length >= PHOTO_CAP) {
+      showToast(`Reached ${PHOTO_CAP}-photo limit`, true);
+      break;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      showToast(`"${file.name}" is over 25 MB`, true);
+      continue;
+    }
+    const item = { file, caption: '', _preview: null };
+    photoQueue.push(item);
+    rerenderPhotoWidget(); // show "loading" tile immediately
+    try {
+      const compressed = await imageCompression(file, {
+        maxSizeMB: 1, maxWidthOrHeight: 1600, useWebWorker: true,
+      });
+      item.file = compressed;
+      item._preview = URL.createObjectURL(compressed);
+    } catch (err) {
+      console.warn('Compression failed for', file.name, err);
+      item._preview = URL.createObjectURL(file);
+    }
+    rerenderPhotoWidget();
+  }
+}
+
+function removePhoto(idx) {
+  const removed = photoQueue.splice(idx, 1)[0];
+  if (removed && removed._preview) URL.revokeObjectURL(removed._preview);
+  rerenderPhotoWidget();
+}
+
+function movePhoto(idx, delta) {
+  const target = idx + delta;
+  if (target < 0 || target >= photoQueue.length) return;
+  const tmp = photoQueue[idx];
+  photoQueue[idx] = photoQueue[target];
+  photoQueue[target] = tmp;
+  rerenderPhotoWidget();
+}
+
+function setPhotoCaption(idx, val) {
+  if (photoQueue[idx]) photoQueue[idx].caption = val;
+}
+
+// Upload any new files in the queue, returning the final array of
+// {path, caption?} suitable for writing to image_paths.
+async function uploadAndFlattenPhotoQueue() {
+  const out = [];
+  for (const p of photoQueue) {
+    if (p.file && !p.path) {
+      const path = await uploadImage(p.file);
+      out.push(p.caption ? { path, caption: p.caption } : { path });
+    } else if (p.path) {
+      out.push(p.caption ? { path: p.path, caption: p.caption } : { path: p.path });
+    }
+  }
+  return out;
+}
+
 
 // ─── Icon picker ──────────────────────────────────────────
 // Renders a tile grid for the place form. The currently-selected icon
@@ -1486,17 +1687,17 @@ async function savePlace() {
   btn.innerHTML = '<span class="loading-spinner"></span>Saving...';
 
   try {
-    // Image: new upload wins; otherwise keep existingImagePath (which is
-    // null after the user clicked Remove photo).
-    let imagePath = existingImagePath;
-    if (uploadedFile) imagePath = await uploadImage(uploadedFile);
+    // Upload any new files in the photo queue, build the final image_paths array.
+    const imagePaths = await uploadAndFlattenPhotoQueue();
+    const primaryPath = imagePaths.length > 0 ? imagePaths[0].path : null;
 
     const record = {
       lat: clickLat, lng: clickLng,
       name, description: desc || null,
       layer, kind,
       icon: icon || null,
-      image_path: imagePath,
+      image_path: primaryPath,        // legacy mirror, kept in sync for back-compat
+      image_paths: imagePaths,
       links: gatherLinks(),
       details: gatherDetails(),
       min_zoom: minZoomVal === '' ? null : parseInt(minZoomVal, 10),
@@ -1548,7 +1749,17 @@ function startEditPlace(place) {
   clickLat = place.lat;
   clickLng = place.lng;
   uploadedFile = null;
-  existingImagePath = place.image_path || null;
+  // Seed photo queue from image_paths, falling back to legacy image_path.
+  photoQueue = [];
+  const arr = Array.isArray(place.image_paths) ? place.image_paths : [];
+  if (arr.length > 0) {
+    arr.forEach(item => {
+      if (typeof item === 'string') photoQueue.push({ path: item, caption: '' });
+      else if (item && item.path) photoQueue.push({ path: item.path, caption: item.caption || '' });
+    });
+  } else if (place.image_path) {
+    photoQueue.push({ path: place.image_path, caption: '' });
+  }
   addMode = 'place'; // reuse the click-to-update-location wiring
   showPlaceForm();
 }

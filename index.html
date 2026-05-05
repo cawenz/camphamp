@@ -92,6 +92,19 @@
 <div id="click-prompt"></div>
 <div id="toast"></div>
 
+<div id="lightbox" hidden>
+  <div class="lightbox-stage">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">×</button>
+    <button class="lightbox-prev" onclick="lightboxStep(-1)" aria-label="Previous">‹</button>
+    <img id="lightbox-img" alt="">
+    <button class="lightbox-next" onclick="lightboxStep(1)" aria-label="Next">›</button>
+  </div>
+  <div class="lightbox-info">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="auth.js"></script>
 <script src="icons.js"></script>
