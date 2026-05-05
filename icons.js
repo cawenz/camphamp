@@ -245,6 +245,40 @@ const ICONS = {
     </svg>
   `,
 
+  sun: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2"/>
+      <path d="M12 20v2"/>
+      <path d="m4.93 4.93 1.41 1.41"/>
+      <path d="m17.66 17.66 1.41 1.41"/>
+      <path d="M2 12h2"/>
+      <path d="M20 12h2"/>
+      <path d="m6.34 17.66-1.41 1.41"/>
+      <path d="m19.07 4.93-1.41 1.41"/>
+    </svg>
+  `,
+
+  tent: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3.5 21 14 3"/>
+      <path d="M20.5 21 10 3"/>
+      <path d="M15.5 21 12 15l-3.5 6"/>
+      <path d="M2 21h20"/>
+    </svg>
+  `,
+
+  // swimmer — custom: head + reaching arm + waves underneath
+  swimmer: `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="9" r="1.8"/>
+      <path d="M7.5 10 c 2 0.6 4 1 6 1"/>
+      <path d="M13.5 11 c 2 0 3 -1 4 -2 c 0.8 -0.7 1.6 -0.7 2 0"/>
+      <path d="M2 16 c 2 -1 4 1 6 0 c 2 -1 4 1 6 0 c 2 -1 4 1 6 0"/>
+      <path d="M2 19 c 2 -1 4 1 6 0 c 2 -1 4 1 6 0 c 2 -1 4 1 6 0"/>
+    </svg>
+  `,
+
   // ────────────────────────────────────────────────
   //  Institution-specific icons (Five-College area)
   // ────────────────────────────────────────────────
@@ -315,9 +349,12 @@ const PICKER_ICONS = [
   { key: 'bed',              label: 'Dorm' },
   { key: 'trophy',           label: 'Athletics' },
   { key: 'tennis',           label: 'Tennis / pickleball' },
+  { key: 'swimmer',          label: 'Pool / swim' },
   { key: 'flower',           label: 'Garden' },
+  { key: 'tent',             label: 'Outdoors / camp' },
   { key: 'graduation-cap',   label: 'Academic' },
   { key: 'tractor',          label: 'Farm / barn' },
+  { key: 'sun',              label: 'Solar / sun' },
   { key: 'bicycle',          label: 'Bicycle' },
   { key: 'bus',              label: 'Bus' },
   { key: 'parking',          label: 'Parking' },
