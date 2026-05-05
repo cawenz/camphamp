@@ -360,7 +360,11 @@ function renderAll() {
 //   low  (z <= 14): icons only, no labels at all
 //   mid  (z 15-16): names visible
 //   high (z >= 17): names + kind subtitle visible
-map.on('zoomend', () => { renderAll(); refreshLabelVisibility(); });
+map.on('zoomend', () => { renderAll(); refreshLabelVisibility(); updateZoomIndicator(); });
+function updateZoomIndicator() {
+  const el = document.getElementById('zoom-value');
+  if (el) el.textContent = map.getZoom();
+}
 map.on('moveend', runLabelCollision); // re-run after panning too — visible set changes
 function refreshLabelVisibility() {
   const z = map.getZoom();
@@ -1648,6 +1652,7 @@ function toggleLegend() {
   buildLegend();
   syncTileBodyClass();
   refreshNativeLabelsButton();
+  updateZoomIndicator();
   await refreshAuthUI();
   await loadAll();
   refreshLabelVisibility();

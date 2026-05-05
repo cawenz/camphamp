@@ -415,6 +415,41 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── ZOOM INDICATOR ──
+   Tiny pill that shows the current zoom level. Useful for curators
+   choosing min_zoom / max_zoom on a place. Sits just above the legend. */
+#zoom-indicator {
+  position: fixed;
+  bottom: 18px;
+  left: 268px;        /* next to the legend block */
+  z-index: 800;
+  background: var(--paper);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px var(--shadow);
+  padding: 8px 14px;
+  font-size: 12px;
+  color: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+#zoom-indicator .zoom-label {
+  font-family: 'Staatliches', sans-serif;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: rgba(0,0,0,0.45);
+}
+#zoom-indicator .zoom-value {
+  font-family: 'Source Sans 3', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+
 /* ── LEGEND ── */
 #legend {
   position: fixed; bottom: 18px; left: 18px; z-index: 800;
@@ -826,6 +861,14 @@ body.satellite-active .marker-poi-sub {
     left: 12px;
     right: auto;
     max-width: calc(100vw - 24px);
+  }
+
+  /* On mobile, sit the zoom pill to the right of the collapsed legend. */
+  #zoom-indicator {
+    bottom: 12px;
+    left: auto;
+    right: 12px;
+    padding: 6px 10px;
   }
   #legend.collapsed-mobile:not(.expanded) .legend-body { display: none; }
   #legend.collapsed-mobile:not(.expanded) .legend-chevron { transform: rotate(-90deg); }
